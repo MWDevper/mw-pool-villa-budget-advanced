@@ -591,52 +591,31 @@
         updateDateTime(); 
 
         // Core API Call (Uses GET method for all data exchange)
-        async function postData(payload) {
-            document.querySelectorAll('.btn-primary, .btn-secondary').forEach(btn => btn.disabled = true);
-            showNotification('รอสักครู่...', 'info', 60000); 
+async function postData(payload) {
+    // ⚠️ โค้ดเดิมที่ใช้ fetch และ WEB_APP_URL จะถูกแทนที่ด้วยโค้ดด้านล่างนี้
+    
+    document.querySelectorAll('.btn-primary, .btn-secondary').forEach(btn => btn.disabled = true);
+    showNotification('รอสักครู่...', 'info', 60000);
 
-            const queryString = Object.keys(payload)
-                .map(key => encodeURIComponent(key) + '=' + encodeURIComponent(payload[key]))
-                .join('&');
-
-            const get_url = WEB_APP_URL + '?' + queryString;
-            
-            try {
-                const response = await fetch(get_url, {
-                    method: 'GET'
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error(`HTTP Error Status: ${response.status}`, errorText);
-                    return { success: false, message: `Server ตอบกลับ Error ${response.status} (อาจเป็น URL ผิด/สิทธิ์เข้าถึงผิด)` };
-                }
-                
-                const responseText = await response.text();
-                
-                try {
-                    const result = JSON.parse(responseText);
-                    
-                    if (result.success && ['ADD_TRANSACTION', 'ADD_ESTIMATE', 'DELETE_TRANSACTION', 'DELETE_ESTIMATE', 'FORWARD_ESTIMATE', 'ADD_MEMBER', 'ADD_ADVANCE'].includes(payload.action)) {
-                        // โหลดข้อมูลใหม่หลังจากเพิ่ม/แก้ไข/ลบ
-                         await loadAllData(); 
-                    }
-                    
-                    return result;
-                } catch (e) {
-                    console.error("Failed to parse JSON:", responseText, e);
-                    return { success: false, message: 'Server ส่งข้อมูลกลับมาผิดรูปแบบ (ไม่ใช่ JSON)' };
-                }
-
-            } catch (error) {
-                console.error("Fetch/Server Connection Error:", error);
-                return { success: false, message: 'การเชื่อมต่อ Network ล้มเหลว' };
-            } finally {
-                document.querySelectorAll('.btn-primary, .btn-secondary').forEach(btn => btn.disabled = false);
-                document.getElementById('notification').classList.remove('show', 'info');
-                document.getElementById('notification').style.display = 'none';
-            }
+    return new Promise((resolve, reject) => {
+        try {
+            // ใช้ google.script.run เพื่อสื่อสารกับฝั่ง Server (Code.gs)
+            // เราเรียกใช้ doGet(payload) แทนการสร้าง URL เอง
+            google.script.run
+                .withSuccessHandler(resolve) // หาก Server (Code.gs) คืนค่าสำเร็จ
+                .withFailureHandler(reject)  // หากเกิด Error ในฝั่ง Server
+                .doGet(payload); // ส่ง Object payload ไปยัง doGet ใน Code.gs
+        } catch (e) {
+            // กรณีฉุกเฉิน
+            reject({ success: false, message: 'CRITICAL ERROR: Google Apps Script API (google.script.run) is not available.' });
+        } finally {
+            // ปลดล็อคปุ่มหลังจากได้ผลลัพธ์แล้ว (ไม่ว่าจะสำเร็จหรือล้มเหลว)
+            document.querySelectorAll('.btn-primary, .btn-secondary').forEach(btn => btn.disabled = false);
+            document.getElementById('notification').classList.remove('show', 'info');
+            document.getElementById('notification').style.display = 'none';
         }
+    });
+}
         
         // *** 3. UI MANAGEMENT ***
 
@@ -1397,6 +1376,7 @@ function populateMemberDropdowns(members) {
     </script>
 </body>
 </html>
+
 
 
 
