@@ -388,6 +388,13 @@
                     <button id="btn-income" class="tab-button" data-type="INCOME">รายรับ</button>
                 </div>
 
+                <div id="income-member-group" class="form-row" style="display: none;">
+                    <label for="income-member">สมาชิกผู้ให้เงินเข้ากองกลาง</label>
+                    <select id="income-member" required>
+                        <option value="">-- ไม่ระบุ (Sponsor/เงินโอนรวม) --</option>
+                    </select>
+                </div>
+
                 <div id="payment-type-group" class="form-row">
                     <label>ประเภทการจ่าย (ใช้ตอนรายจ่าย)</label>
                     <div class="radio-group">
@@ -652,6 +659,7 @@
             document.getElementById('btn-income').classList.remove('active');
             document.getElementById('payment-type-group').style.display = 'flex';
             document.getElementById('paid-by-group').style.display = 'flex';
+            document.getElementById('income-member-group').style.display = 'none'; // ✅ NEW: ซ่อน Income Member
             transactionType = 'EXPENSE';
         });
         document.getElementById('btn-income').addEventListener('click', function() {
@@ -659,6 +667,7 @@
             document.getElementById('btn-expense').classList.remove('active');
             document.getElementById('payment-type-group').style.display = 'none';
             document.getElementById('paid-by-group').style.display = 'none';
+            document.getElementById('income-member-group').style.display = 'flex'; // ✅ NEW: แสดง Income Member
             transactionType = 'INCOME';
         });
         
@@ -786,6 +795,7 @@
             
             let paidBy = null;
             let paymentType = null;
+            let incomeMember = null; // ✅ NEW
             
             if (transactionType === 'EXPENSE') {
                 paidBy = document.getElementById('paid-by-member').value;
@@ -795,18 +805,21 @@
                     showNotification('กรุณาเลือก "ผู้จ่ายเงิน (Paid By)"', 'info');
                     return;
                 }
+            } else if (transactionType === 'INCOME') { // ✅ NEW LOGIC FOR INCOME
+                incomeMember = document.getElementById('income-member').value || '-'; // อาจเป็น '-' (Sponsor)
             }
 
 
-            const payload = { 
-                action: 'ADD_TRANSACTION', 
-                user: user, 
-                type: transactionType, 
-                description: description, 
-                amount: amount,
-                paidBy: paidBy, // ✅ NEW
-                paymentType: paymentType // ✅ NEW
-            };
+    const payload = { 
+        action: 'ADD_TRANSACTION', 
+        user: user, 
+        type: transactionType, 
+        description: description, 
+        amount: amount,
+        paidBy: paidBy,
+        paymentType: paymentType,
+        incomeMember: incomeMember // ✅ NEW
+    };
             
             const result = await postData(payload);
             
@@ -927,8 +940,10 @@
 
         // ในไฟล์ poolvilla2.html (ส่วน JavaScript)
 
-function renderSettlement(settlementData) {
+function renderSettlement(data) {
     const container = document.getElementById('settlement-summary');
+    const poolNetBalance = data.poolNetBalance || 0; // ✅ NEW: ดึงยอด Pool Balance
+    const settlementData = data.settlementData;
     let html = '';
     
     // แปลง Object ให้เป็น Array เพื่อให้เรียงลำดับและวนลูปได้ง่าย
@@ -942,15 +957,30 @@ function renderSettlement(settlementData) {
         return;
     }
 
-    // สร้างตารางสรุป
+    // 1. แสดงยอดคงเหลือของกองกลาง (Pool Status)
+    const poolClass = poolNetBalance >= 0 ? 'text-success' : 'text-danger';
     html += `
-        <h3 style="margin-top: 15px;">ตารางสรุปหนี้สิน/เครดิตสุทธิ</h3>
+        <h3 style="margin-top: 5px;">สรุปสถานะเงินกองกลาง (Pool)</h3>
+        <div style="text-align: center; padding: 10px; border: 2px solid #ddd; border-radius: 8px; margin-bottom: 20px;">
+            <p style="margin: 0; font-size: 1.1em;">ยอดคงเหลือ (รายรับรวม - รายจ่าย Pool)</p>
+            <strong style="font-size: 1.8em;" class="${poolClass}">
+                ${poolNetBalance.toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท
+            </strong>
+            <p style="font-size: 0.8em; color: #6c757d; margin: 5px 0 0;">
+                (ถ้าเป็นบวก: จะหารเฉลี่ยคืนทุกคน, ถ้าเป็นลบ: จะเฉลี่ยหนี้เพิ่มทุกคน)
+            </p>
+        </div>
+    `;
+
+    // 2. สร้างตารางสรุปหนี้สินส่วนบุคคล
+    html += `
+        <h3 style="margin-top: 15px;">ตารางสรุปหนี้สิน/เครดิตสุทธิ (เพื่อใช้โอน)</h3>
         <table class="transaction-table">
             <thead>
                 <tr>
-                    <th style="width: 25%;">สมาชิก</th>
+                    <th style="width: 20%;">สมาชิก</th>
                     <th style="width: 30%; text-align: right;">จ่ายไปก่อน (เครดิต)</th>
-                    <th style="width: 25%; text-align: right;">เบิก + หนี้ส่วนกลาง (หนี้)</th>
+                    <th style="width: 30%; text-align: right;">หนี้รวม/ส่วนกลาง</th>
                     <th style="width: 20%; text-align: right;">ยอดสุทธิ</th>
                 </tr>
             </thead>
@@ -961,14 +991,15 @@ function renderSettlement(settlementData) {
         const d = m.data;
         const netBalance = d.netBalance;
         const balanceClass = netBalance > 0 ? 'text-danger' : (netBalance < 0 ? 'text-success' : '');
-        const netText = netBalance > 0 ? `ติดหนี้ ${Math.abs(netBalance).toLocaleString('th-TH', { minimumFractionDigits: 2 })}` : (netBalance < 0 ? `รับคืน ${Math.abs(netBalance).toLocaleString('th-TH', { minimumFractionDigits: 2 })}` : 'เคลียร์แล้ว');
+        const netText = netBalance > 0 ? `${Math.abs(netBalance).toLocaleString('th-TH', { minimumFractionDigits: 2 })}` : (netBalance < 0 ? `${Math.abs(netBalance).toLocaleString('th-TH', { minimumFractionDigits: 2 })}` : '0.00');
 
         html += `
             <tr>
                 <td><strong>${m.name}</strong></td>
                 <td class="text-success" style="text-align: right;">${d.paidOut.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
-                <td class="text-danger" style="text-align: right;">${(d.paidByOthers + d.advanceDebt).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+                <td class="text-danger" style="text-align: right;">${(d.advanceDebt + d.baseDebit).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
                 <td class="${balanceClass}" style="font-weight: bold; text-align: right;">
+                    ${netBalance > 0 ? 'จ่าย: ' : (netBalance < 0 ? 'รับ: ' : '')}
                     ${netText}
                 </td>
             </tr>
@@ -980,14 +1011,14 @@ function renderSettlement(settlementData) {
         </table>
     `;
 
-    // แสดงผลลัพธ์การโอนเงินเพื่อเคลียร์
-    const creditors = membersList.filter(m => m.data.netBalance < 0).sort((a, b) => a.data.netBalance - b.data.netBalance); // เจ้าหนี้ (ต้องได้รับเงินคืน)
-    const debtors = membersList.filter(m => m.data.netBalance > 0).sort((a, b) => b.data.netBalance - a.data.netBalance); // ลูกหนี้ (ต้องจ่ายเงิน)
+    // 3. แสดงผลลัพธ์การโอนเงินเพื่อเคลียร์ (Settlement)
+    const creditors = membersList.filter(m => m.data.netBalance < 0).sort((a, b) => a.data.netBalance - b.data.netBalance); 
+    const debtors = membersList.filter(m => m.data.netBalance > 0).sort((a, b) => b.data.netBalance - a.data.netBalance); 
     
     let transferHtml = '<h3 style="margin-top: 20px;">การโอนเงินเพื่อเคลียร์หนี้ (ใครจ่ายให้ใคร)</h3>';
     let transfers = [];
 
-    // --- Core Settlement Logic (Simplified) ---
+    // Core Settlement Logic (Simplified) - **Same as V2, but uses the new netBalance**
     let currentDebtors = debtors.map(d => ({ name: d.name, amount: d.data.netBalance }));
     let currentCreditors = creditors.map(c => ({ name: c.name, amount: Math.abs(c.data.netBalance) }));
 
@@ -1000,7 +1031,7 @@ function renderSettlement(settlementData) {
 
         const transferAmount = Math.min(debtor.amount, creditor.amount);
 
-        if (transferAmount > 0.01) { // โอนเมื่อยอดมากกว่า 1 สตางค์
+        if (transferAmount > 0.01) { 
             transfers.push({
                 from: debtor.name,
                 to: creditor.name,
@@ -1011,54 +1042,61 @@ function renderSettlement(settlementData) {
             creditor.amount -= transferAmount;
         }
 
-        if (debtor.amount <= 0.01) { // ลูกหนี้เคลียร์ครบ
+        if (debtor.amount <= 0.01) { 
             i++;
         }
-        if (creditor.amount <= 0.01) { // เจ้าหนี้ได้รับครบ
+        if (creditor.amount <= 0.01) { 
             j++;
         }
     }
-    // --- End Core Settlement Logic ---
-
+    
     if (transfers.length > 0) {
         transferHtml += `
             <ul style="list-style-type: none; padding: 0;">
                 ${transfers.map(t => 
                     `<li style="padding: 8px 0; border-bottom: 1px dashed #ddd; font-weight: bold;">
-                        ${t.from} ➡️ ${t.to}: 
+                        ${t.from} (จ่าย) ➡️ ${t.to} (รับ): 
                         <span class="text-danger">${t.amount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span> บาท
                     </li>`).join('')}
             </ul>
         `;
     } else {
-        transferHtml += '<p style="text-align: center; color: #28a745; font-weight: bold;">🥳 ยอดหนี้สินทุกคนเคลียร์กันแล้ว! (หรือมีเงินกองกลางเหลือเยอะ)</p>';
+        transferHtml += '<p style="text-align: center; color: #28a745; font-weight: bold;">🥳 ยอดหนี้สินทุกคนเคลียร์กันแล้ว</p>';
     }
 
     container.innerHTML = html + transferHtml;
 }
 
-        // Utility สำหรับ Populating Dropdowns
-        function populateMemberDropdowns(members) {
-            const dropdowns = [
-                document.getElementById('paid-by-member'),
-                document.getElementById('advance-member')
-            ];
+// ... (ส่วนอื่น ๆ ของ poolvilla2.html เหมือนเดิม)
 
-            dropdowns.forEach(select => {
-                const selectedValue = select.value;
-                select.innerHTML = '<option value="">-- กรุณาเลือกสมาชิก --</option>'; 
-                
-                members.forEach(member => {
-                    const option = document.createElement('option');
-                    option.value = member;
-                    option.textContent = member;
-                    if (member === selectedValue) {
-                        option.selected = true;
-                    }
-                    select.appendChild(option);
-                });
-            });
+        // Utility สำหรับ Populating Dropdowns
+function populateMemberDropdowns(members) {
+    const dropdowns = [
+        document.getElementById('paid-by-member'),
+        document.getElementById('advance-member'),
+        document.getElementById('income-member') // ✅ NEW
+    ];
+
+    dropdowns.forEach(select => {
+        const selectedValue = select.value;
+        // ปรับ option แรกสำหรับ Income โดยเฉพาะ
+        if (select.id === 'income-member') {
+            select.innerHTML = '<option value="">-- ไม่ระบุ (Sponsor/เงินโอนรวม) --</option>'; 
+        } else {
+            select.innerHTML = '<option value="">-- กรุณาเลือกสมาชิก --</option>'; 
         }
+        
+        members.forEach(member => {
+            const option = document.createElement('option');
+            option.value = member;
+            option.textContent = member;
+            if (member === selectedValue) {
+                option.selected = true;
+            }
+            select.appendChild(option);
+        });
+    });
+}
         
         function renderMembers(members) {
             const listElement = document.getElementById('member-list-container');
@@ -1359,5 +1397,6 @@ function renderSettlement(settlementData) {
     </script>
 </body>
 </html>
+
 
 
