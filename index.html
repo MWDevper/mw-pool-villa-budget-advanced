@@ -556,6 +556,29 @@
         let membersData = []; // ✅ NEW
         let advanceData = []; // ✅ NEW
 
+                function postData(payload) {
+            return new Promise((resolve, reject) => {
+                // ต้องมี checkAutoLogin(); เพื่อจัดการ Redirect ถ้า Session หมดอายุ
+                // checkAutoLogin(); 
+                
+                google.script.run
+                    .withSuccessHandler(result => {
+                        // ถ้าเกิด Error ใน Server (Code.gs) จะส่ง success: false กลับมา
+                        if (result && result.success === false) {
+                             reject(result.message || 'Server returned failure.');
+                             return;
+                        }
+                        resolve(result);
+                    })
+                    .withFailureHandler(error => {
+                        // ถ้าเกิด Error ในการเชื่อมต่อ (เช่น Script function not found)
+                        console.error('Apps Script Call Failed:', error);
+                        reject(error);
+                    })
+                    .doGet(payload); // เรียก doGet ใน Code.gs 
+            });
+        }
+
         // *** 2. CORE UTILITY FUNCTIONS ***
 
         // Utility: Show stylish notification (Toast)
@@ -589,33 +612,6 @@
         }
         setInterval(updateDateTime, 1000); 
         updateDateTime(); 
-
-        // Core API Call (Uses GET method for all data exchange)
-async function postData(payload) {
-    // ⚠️ โค้ดเดิมที่ใช้ fetch และ WEB_APP_URL จะถูกแทนที่ด้วยโค้ดด้านล่างนี้
-    
-    document.querySelectorAll('.btn-primary, .btn-secondary').forEach(btn => btn.disabled = true);
-    showNotification('รอสักครู่...', 'info', 60000);
-
-    return new Promise((resolve, reject) => {
-        try {
-            // ใช้ google.script.run เพื่อสื่อสารกับฝั่ง Server (Code.gs)
-            // เราเรียกใช้ doGet(payload) แทนการสร้าง URL เอง
-            google.script.run
-                .withSuccessHandler(resolve) // หาก Server (Code.gs) คืนค่าสำเร็จ
-                .withFailureHandler(reject)  // หากเกิด Error ในฝั่ง Server
-                .doGet(payload); // ส่ง Object payload ไปยัง doGet ใน Code.gs
-        } catch (e) {
-            // กรณีฉุกเฉิน
-            reject({ success: false, message: 'CRITICAL ERROR: Google Apps Script API (google.script.run) is not available.' });
-        } finally {
-            // ปลดล็อคปุ่มหลังจากได้ผลลัพธ์แล้ว (ไม่ว่าจะสำเร็จหรือล้มเหลว)
-            document.querySelectorAll('.btn-primary, .btn-secondary').forEach(btn => btn.disabled = false);
-            document.getElementById('notification').classList.remove('show', 'info');
-            document.getElementById('notification').style.display = 'none';
-        }
-    });
-}
         
         // *** 3. UI MANAGEMENT ***
 
@@ -1376,6 +1372,7 @@ function populateMemberDropdowns(members) {
     </script>
 </body>
 </html>
+
 
 
 
