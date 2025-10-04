@@ -1,578 +1,1138 @@
-// ====================================================================
-// โค้ดสำหรับ Code.gs: API Backend ฉบับสมบูรณ์ (V3: Pool Settlement Logic)
-// ====================================================================
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pool Villa Budget App</title>
+    <style>
+        /* BASE & MOBILE-FIRST STYLES */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f7f6;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
 
-const SHEET_NAME = {
-    CONFIG: 'Config',
-    TRANSACTIONS: 'Transactions',
-    ESTIMATES: 'Estimates',
-    LOGS: 'Logs',
-    ACTIVE_USERS: 'ActiveUsers', 
-    VISITORS: 'Visitors',
-    MEMBERS: 'Members', 
-    ADVANCE: 'Advance' 
-};
+        .container {
+            width: 100%;
+            max-width: 600px; /* จำกัดความกว้างสำหรับมือถือ */
+            margin: 0 auto;
+            padding: 15px;
+            box-sizing: border-box;
+        }
 
-// ====================================================================
-// CORE FUNCTIONS: doGet
-// ====================================================================
+        /* HEADER & STATUS BAR */
+        header {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
 
-function doGet(e) {
-    let result = {};
-    const ss = SpreadsheetApp.getActiveSpreadsheet(); 
+        header h1 {
+            font-size: 1.2em;
+            margin: 0;
+        }
 
-    // Return HTML content if no action parameter is provided
-    if (!e || !e.parameter || !e.parameter.action) {
-        return HtmlService.createTemplateFromFile('index').evaluate()
-            .setTitle(ss.getName())
-            .setSandboxMode(HtmlService.SandboxMode.IFRAME);
-    }
-    
-    try {
-        if (!ss) {
-             result = { success: false, message: 'CRITICAL ERROR: Spreadsheet not bound.' };
-        } else {
-            const params = e.parameter; 
-            const action = params.action;
+        .status-bar {
+            display: flex;
+            align-items: center;
+            font-size: 0.85em;
+        }
+
+        .user-status {
+            margin-right: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .user-status span {
+            margin-left: 5px;
+            font-weight: bold;
+        }
+
+        .balance-box {
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .balance-title {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .balance-amount {
+            font-size: 2.2em;
+            font-weight: 700;
+            color: #28a745; /* สีเขียวสำหรับยอดคงเหลือ */
+        }
+
+        .negative {
+            color: #dc3545; /* สีแดงสำหรับติดลบ */
+        }
+
+        .sub-balance-info {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 10px;
+            font-size: 0.8em;
+            color: #555;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+        }
+
+        /* TABS */
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ddd;
+        }
+
+        .tab-button {
+            flex-grow: 1;
+            padding: 12px 0;
+            text-align: center;
+            cursor: pointer;
+            background-color: #eee;
+            border: none;
+            border-bottom: 3px solid transparent;
+            font-size: 1em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .tab-button.active {
+            background-color: #fff;
+            color: #007bff;
+            border-bottom: 3px solid #007bff;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 10px 0;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* FORM STYLES */
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        input[type="text"], 
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 1em;
+        }
+        
+        select {
+            appearance: none;
+            background: #fff url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23000000%22%20d%3D%22M287%20197.8L151.2%2062.2a14.3%2014.3%200%200%200-20.1%200L5.3%20197.8c-7.1%207.1-7.1%2018.6%200%2025.7s18.6%207.1%2025.7%200l113.8-113.8L261.3%20223.5c7.1%207.1%2018.6%207.1%2025.7%200s7.1-18.6%200-25.7z%22%2F%3E%3C%2Fsvg%3E') no-repeat right 10px center;
+            background-size: 12px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 1.1em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+            margin-top: 10px;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+        
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+            margin-top: 10px;
+        }
+        
+        .btn-danger:hover {
+            background-color: #b02a37;
+        }
+
+        /* DATA LISTS (TRANSACTIONS & ESTIMATES) */
+        .data-list {
+            margin-top: 15px;
+        }
+
+        .data-item {
+            background-color: #ffffff;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .item-details {
+            flex-grow: 1;
+        }
+
+        .item-description {
+            font-weight: 600;
+            font-size: 1.1em;
+            margin-bottom: 3px;
+        }
+
+        .item-meta {
+            font-size: 0.85em;
+            color: #6c757d;
+        }
+
+        .item-amount {
+            font-weight: 700;
+            font-size: 1.2em;
+            margin-left: 10px;
+        }
+
+        .income {
+            color: #28a745;
+        }
+
+        .expense {
+            color: #dc3545;
+        }
+        
+        .estimate-item {
+            border-left: 5px solid #ffc107; /* สีเหลืองสำหรับรายการประเมิน */
+        }
+        
+        .estimate .item-amount {
+            color: #ffc107;
+        }
+
+        .data-list h3 {
+            margin-top: 0;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        .delete-btn, .forward-btn {
+            background: none;
+            border: none;
+            color: #dc3545;
+            cursor: pointer;
+            font-size: 1.2em;
+            margin-left: 10px;
+            padding: 0;
+            width: auto;
+            transition: color 0.2s;
+        }
+        
+        .forward-btn {
+            color: #007bff;
+        }
+
+        .delete-btn:hover, .forward-btn:hover {
+            color: #000;
+        }
+        
+        /* LOGIN PAGE */
+        .login-container {
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .login-form {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            width: 100%;
+            max-width: 350px;
+        }
+
+        .login-form h2 {
+            text-align: center;
+            margin-bottom: 25px;
+            color: #007bff;
+        }
+
+        /* NOTIFICATION */
+        .notification-bar {
+            position: fixed;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            color: white;
+            border-radius: 0 0 5px 5px;
+            z-index: 1000;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .notification-bar.show {
+            display: block;
+            opacity: 1;
+        }
+
+        .notification-bar.success {
+            background-color: #28a745;
+        }
+
+        .notification-bar.error {
+            background-color: #dc3545;
+        }
+
+        .notification-bar.info {
+            background-color: #ffc107;
+            color: #333;
+        }
+        
+        /* SETTLEMENT TABLE */
+        .settlement-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        .settlement-table th, .settlement-table td {
+            border: 1px solid #eee;
+            padding: 8px;
+            text-align: left;
+            font-size: 0.9em;
+        }
+        
+        .settlement-table th {
+            background-color: #007bff;
+            color: white;
+            font-weight: 600;
+        }
+        
+        .settlement-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        
+        .settlement-table .net-balance-cell {
+            font-weight: bold;
+        }
+        
+        .settlement-table .credit {
+            color: #28a745;
+        }
+        
+        .settlement-table .debt {
+            color: #dc3545;
+        }
+
+        /* MOBILE OPTIMIZATION */
+        @media (min-width: 601px) {
+            .container {
+                max-width: 800px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="notification-bar" id="notificationBar"></div>
+
+    <div id="mainApp" style="display: none;">
+        <header>
+            <h1 id="accountNameTitle">Pool Villa Budget App</h1>
+            <div class="status-bar">
+                <div class="user-status">
+                    🧑 <span id="loggedInUser"></span>
+                </div>
+                <button onclick="logout()" style="background-color: transparent; color: white; border: 1px solid white; padding: 5px 10px; font-size: 0.8em; margin-left: 10px; width: auto;">
+                    Logout
+                </button>
+            </div>
+        </header>
+        
+        <div class="container">
+            <div id="balanceBox" class="balance-box">
+                <div class="balance-title">ยอดเงินที่ใช้ได้จริง (หลังหักยอดประเมิน)</div>
+                <div id="availableBalance" class="balance-amount">0.00</div>
+                <div class="sub-balance-info">
+                    <span>คงเหลือจริง: <span id="currentBalance">0.00</span></span>
+                    <span>ยอดประเมิน: <span id="totalEstimate">0.00</span></span>
+                </div>
+            </div>
+
+            <div class="tabs">
+                <button class="tab-button active" onclick="openTab(event, 'AddTransaction')">บันทึก</button>
+                <button class="tab-button" onclick="openTab(event, 'ViewData')">รายการ</button>
+                <button class="tab-button" onclick="openTab(event, 'Settlement')">สรุปบัญชี</button>
+                <button class="tab-button" onclick="openTab(event, 'Advanced')">จัดการ</button>
+            </div>
+
+            <div id="AddTransaction" class="tab-content active">
+                <div class="form-group">
+                    <label for="transactionType">ประเภทรายการ</label>
+                    <select id="transactionType" onchange="toggleIncomeExpenseFields()">
+                        <option value="EXPENSE">รายจ่าย</option>
+                        <option value="INCOME">รายรับ</option>
+                    </select>
+                </div>
+                
+                <div id="expenseFields">
+                    <div class="form-group">
+                        <label for="expensePaidBy">ผู้จ่ายเงินออกไปก่อน (Credit)</label>
+                        <select id="expensePaidBy" required>
+                            </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="paymentType">ประเภทการจ่าย</label>
+                        <select id="paymentType" required>
+                            <option value="POOL">จ่ายจากกองกลาง (Pool)</option>
+                            <option value="INDIVIDUAL">จ่ายส่วนตัวไปก่อน (หารเฉลี่ย)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div id="incomeFields" style="display:none;">
+                    <div class="form-group">
+                        <label for="incomeMember">สมาชิกผู้จ่ายเข้ากองกลาง</label>
+                        <select id="incomeMember">
+                            <option value="">-- เป็นเงิน Sponsor (ไม่ได้เครดิต) --</option>
+                            </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="transactionAmount">จำนวนเงิน</label>
+                    <input type="number" id="transactionAmount" placeholder="0.00" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="transactionDescription">คำอธิบาย/รายละเอียด</label>
+                    <input type="text" id="transactionDescription" placeholder="ค่าอาหาร, ค่าน้ำมัน, ฯลฯ" required>
+                </div>
+                <button class="btn-primary" onclick="addTransaction()">บันทึกรายการ</button>
+
+                <h3 style="margin-top: 30px;">บันทึกรายการประเมิน (Estimate)</h3>
+                <p style="font-size: 0.9em; color: #666;">ยอดนี้จะถูกหักออกจากยอดเงินที่ใช้ได้ทันที แต่ยังไม่ถูกบันทึกเป็นรายจ่ายจริง</p>
+                <div class="form-group">
+                    <label for="estimateAmount">จำนวนเงินที่คาดว่าจะใช้</label>
+                    <input type="number" id="estimateAmount" placeholder="0.00" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label for="estimateDescription">คำอธิบายรายการประเมิน</label>
+                    <input type="text" id="estimateDescription" placeholder="งบประมาณซื้อของ">
+                </div>
+                <button class="btn-primary" onclick="addEstimate()">บันทึกรายการประเมิน</button>
+            </div>
+
+            <div id="ViewData" class="tab-content">
+                <h3>รายการรายจ่าย/รายรับทั้งหมด</h3>
+                <div id="transactionList" class="data-list">
+                </div>
+                
+                <h3 style="margin-top: 30px;">รายการประเมินที่ค้างอยู่</h3>
+                <div id="estimateList" class="data-list">
+                </div>
+            </div>
+
+            <div id="Settlement" class="tab-content">
+                <h3>สรุปยอดหนี้สิน/เครดิตส่วนตัว</h3>
+                <p style="font-size: 0.9em; color: #666;">ยอดบวกคือ **เครดิต (ต้องได้รับคืน)**, ยอดลบคือ **หนี้ (ต้องจ่ายเพิ่ม)**</p>
+                <table id="settlementTable" class="settlement-table">
+                    <thead>
+                        <tr>
+                            <th>สมาชิก</th>
+                            <th>ยอดจ่ายไปก่อน (Credit)</th>
+                            <th>ยอดรับผิดชอบ (Debit)</th>
+                            <th>ยอดเบิก (Advance Debt)</th>
+                            <th>ยอดสุทธิ (Net)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+                <h3 style="margin-top: 20px;">รายการเบิกเงินล่วงหน้า (Advance)</h3>
+                <div id="advanceList" class="data-list">
+                </div>
+            </div>
+
+            <div id="Advanced" class="tab-content">
+                <h3>เพิ่มสมาชิกใหม่</h3>
+                <div class="form-group">
+                    <label for="newMemberName">ชื่อสมาชิก</label>
+                    <input type="text" id="newMemberName" placeholder="ชื่อเล่น หรือชื่อจริง" required>
+                </div>
+                <button class="btn-primary" onclick="addMember()">เพิ่มสมาชิก</button>
+
+                <h3 style="margin-top: 30px;">บันทึกการเบิกเงินล่วงหน้า (Advance)</h3>
+                <div class="form-group">
+                    <label for="advanceMember">สมาชิกที่เบิกเงิน</label>
+                    <select id="advanceMember" required>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="advanceAmount">จำนวนเงินที่เบิก</label>
+                    <input type="number" id="advanceAmount" placeholder="0.00" step="0.01" required>
+                </div>
+                <button class="btn-primary" onclick="addAdvance()">บันทึกการเบิก</button>
+
+                <button class="btn-danger" style="margin-top: 50px;" onclick="clearActiveUsers()">เคลียร์ผู้ใช้งานค้าง (ฉุกเฉิน)</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="loginScreen" class="login-container">
+        <div class="login-form">
+            <h2>Pool Villa Budget App</h2>
+            <div class="form-group">
+                <label for="loginUser">ชื่อผู้ใช้งาน</label>
+                <input type="text" id="loginUser" placeholder="พิมพ์ชื่อสมาชิก หรือ Admin" required>
+            </div>
+             <div class="form-group">
+                <label for="passcode">รหัสผ่าน</label>
+                <input type="password" id="passcode" placeholder="สำหรับ Admin เท่านั้น" required>
+            </div>
+            <button class="btn-primary" onclick="login()">เข้าสู่ระบบ</button>
+        </div>
+    </div>
+    <script>
+        // *** 1. CONFIGURATION & STATE ***
+        const LOGGED_IN_USER_KEY = 'poolVillaBudgetAppUser';
+        let allMembers = []; // เก็บรายชื่อสมาชิกทั้งหมด
+        let currentData = {}; // เก็บข้อมูลทั้งหมดที่โหลดมาจาก Apps Script
+
+        // *** 2. CORE APIS ***
+        // Core API Call (Uses GET method for all data exchange)
+        function postData(payload) {
+            return new Promise((resolve, reject) => {
+                google.script.run
+                    .withSuccessHandler(result => {
+                        // ถ้าเกิด Error ใน Server (Code.gs) จะส่ง success: false กลับมา
+                        if (result && result.success === false) {
+                            reject(result.message || 'Server returned failure.');
+                            return;
+                        }
+                        resolve(result);
+                    })
+                    .withFailureHandler(error => {
+                        // ถ้าเกิด Error ในการเชื่อมต่อ (เช่น Script function not found)
+                        console.error('Apps Script Call Failed:', error);
+                        // Check for deployment error pattern (common in Apps Script errors)
+                         if (error.includes('No deployment found')) {
+                            reject('No deployment found for this ID. Please re-deploy the web app.');
+                        } else {
+                            reject(error);
+                        }
+                    })
+                    .doGet(payload); // เรียก doGet ใน Code.gs
+            });
+        }
+
+        // --- DATA RETRIEVAL ---
+        async function loadAllData() {
+            try {
+                // โหลดข้อมูลหลัก (Transactions, Estimates, Balances)
+                const payload = { action: 'GET_DATA' };
+                const result = await postData(payload);
+
+                if (result.success) {
+                    currentData = result;
+                    allMembers = result.members || [];
+                    
+                    renderBalance(result.poolBalance, result.availableBalance, result.totalEstimate);
+                    renderTransactionList(result.transactions);
+                    renderEstimateList(result.estimates);
+                    renderSettlement(result.settlement);
+                    renderAdvanceList(result.advance);
+                    
+                    // Populate member selects
+                    populateMemberSelects();
+                    
+                } else {
+                    showNotification(`โหลดข้อมูลล้มเหลว: ${result.message}`, 'error', 5000);
+                }
+            } catch (e) {
+                console.error("Load Data Error:", e);
+                showNotification(`เกิดข้อผิดพลาดในการโหลดข้อมูล: ${e}`, 'error', 5000);
+            }
+        }
+        
+        // --- LOGIN & LOGOUT (MODIFIED) ---
+        async function login() {
+            const user = document.getElementById('loginUser').value.trim();
+            const passcode = document.getElementById('passcode').value.trim(); // Get passcode
             
-            // Convert amount to number if present
-            const processedParams = {
-                action: action,
-                passcode: params.passcode,
-                user: params.user,
-                type: params.type,
-                amount: params.amount ? parseFloat(params.amount) : undefined,
-                description: params.description,
-                rowIndex: params.rowIndex ? parseInt(params.rowIndex) : undefined,
-                paymentType: params.paymentType,
-                paidBy: params.paidBy,
-                member: params.member
+            if (!user) {
+                showNotification('กรุณากรอกชื่อผู้ใช้งาน', 'error');
+                return;
+            }
+
+            try {
+                const payload = {
+                    action: 'LOGIN',
+                    user: user,
+                    passcode: passcode // Send passcode to the server
+                };
+
+                const result = await postData(payload);
+
+                if (result.success) {
+                    localStorage.setItem(LOGGED_IN_USER_KEY, user);
+                    showNotification('เข้าสู่ระบบสำเร็จ', 'success');
+                    // Hide login screen, show app
+                    document.getElementById('loginScreen').style.display = 'none';
+                    document.getElementById('mainApp').style.display = 'flex';
+                    document.getElementById('loggedInUser').textContent = user;
+                    // Reset passcode field
+                    document.getElementById('passcode').value = ''; 
+                    await loadAllData();
+                } else {
+                    showNotification(result.message || 'เข้าสู่ระบบล้มเหลว', 'error');
+                }
+            } catch (e) {
+                console.error("Login Error:", e);
+                 if (e.includes('No deployment found')) {
+                    showNotification('ข้อผิดพลาดในการเชื่อมต่อ App Script. โปรดตรวจสอบการ Deploy', 'error', 10000);
+                } else {
+                    showNotification(`เกิดข้อผิดพลาดในการเชื่อมต่อ: ${e}`, 'error');
+                }
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem(LOGGED_IN_USER_KEY);
+            document.getElementById('mainApp').style.display = 'none';
+            document.getElementById('loginScreen').style.display = 'flex';
+            document.getElementById('loggedInUser').textContent = '';
+            showNotification('ออกจากระบบสำเร็จ', 'info');
+        }
+
+        function checkAutoLogin() {
+            const user = localStorage.getItem(LOGGED_IN_USER_KEY);
+            if (user) {
+                // Simulate successful login if session exists
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('mainApp').style.display = 'flex';
+                document.getElementById('loggedInUser').textContent = user;
+                loadAllData();
+            } else {
+                document.getElementById('loginScreen').style.display = 'flex';
+                document.getElementById('mainApp').style.display = 'none';
+            }
+        }
+        // *** 3. RENDER FUNCTIONS ***
+        function formatNumber(num) {
+            if (typeof num !== 'number') return '0.00';
+            return num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+
+        function renderBalance(poolBalance, availableBalance, totalEstimate) {
+            const balanceElement = document.getElementById('availableBalance');
+            const currentBalanceElement = document.getElementById('currentBalance');
+            const totalEstimateElement = document.getElementById('totalEstimate');
+
+            balanceElement.textContent = formatNumber(availableBalance);
+            currentBalanceElement.textContent = formatNumber(poolBalance);
+            totalEstimateElement.textContent = formatNumber(totalEstimate);
+            
+            // Apply color to the main available balance
+            if (availableBalance < 0) {
+                balanceElement.classList.add('negative');
+            } else {
+                balanceElement.classList.remove('negative');
+            }
+        }
+        
+        function populateMemberSelects() {
+            const selects = [
+                document.getElementById('expensePaidBy'),
+                document.getElementById('incomeMember'),
+                document.getElementById('advanceMember')
+            ];
+            
+            selects.forEach(select => {
+                const isIncome = select.id === 'incomeMember';
+                const originalOptions = Array.from(select.options).filter(opt => opt.value === '' && isIncome);
+                
+                // Clear existing options, but keep the special income option
+                select.innerHTML = '';
+                if (isIncome && originalOptions.length > 0) {
+                    select.appendChild(originalOptions[0]);
+                }
+
+                allMembers.forEach(member => {
+                    const option = document.createElement('option');
+                    option.value = member;
+                    option.textContent = member;
+                    select.appendChild(option);
+                });
+            });
+        }
+        
+        function renderTransactionList(transactions) {
+            const list = document.getElementById('transactionList');
+            list.innerHTML = '';
+            
+            if (!transactions || transactions.length === 0) {
+                list.innerHTML = '<p style="text-align: center; color: #999;">ยังไม่มีรายการรายจ่าย/รายรับ</p>';
+                return;
+            }
+
+            transactions.slice().reverse().forEach((t, originalIndex) => {
+                // The actual row index in the sheet (0-based array index of the data, NOT including header)
+                // We use the reversed array index to get the actual index in the sheet data.
+                const dataIndex = transactions.length - 1 - originalIndex;
+                const isExpense = t.Type === 'EXPENSE';
+                const amountClass = isExpense ? 'expense' : 'income';
+                
+                const item = document.createElement('div');
+                item.className = 'data-item';
+                item.innerHTML = `
+                    <div class="item-details">
+                        <div class="item-description">${t.Description}</div>
+                        <div class="item-meta">
+                            ${t.Timestamp ? new Date(t.Timestamp).toLocaleDateString('th-TH') : ''} | 
+                            ${isExpense ? `จ่ายโดย: ${t['Paid By']} (${t['Payment Type'] === 'POOL' ? 'กองกลาง' : 'ส่วนตัว'})` : `รับจาก: ${t.Member || 'SPONSOR'}`}
+                        </div>
+                    </div>
+                    <div class="item-amount ${amountClass}">
+                        ${isExpense ? '-' : '+'} ${formatNumber(t.Amount)}
+                    </div>
+                    <button class="delete-btn" onclick="deleteTransaction(${dataIndex})" title="ลบรายการ">🗑️</button>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function renderEstimateList(estimates) {
+            const list = document.getElementById('estimateList');
+            list.innerHTML = '';
+
+            if (!estimates || estimates.length === 0) {
+                list.innerHTML = '<p style="text-align: center; color: #999;">ไม่มีรายการประเมินที่ค้างอยู่</p>';
+                return;
+            }
+            
+            estimates.slice().reverse().forEach((e, originalIndex) => {
+                 // The actual row index in the sheet (0-based array index of the data, NOT including header)
+                const dataIndex = estimates.length - 1 - originalIndex;
+                
+                const item = document.createElement('div');
+                item.className = 'data-item estimate-item';
+                item.innerHTML = `
+                    <div class="item-details">
+                        <div class="item-description">${e.Description}</div>
+                        <div class="item-meta">
+                            ${e.Timestamp ? new Date(e.Timestamp).toLocaleDateString('th-TH') : ''} | 
+                            บันทึกโดย: ${e['Logged By']}
+                        </div>
+                    </div>
+                    <div class="item-amount estimate">
+                        -${formatNumber(e.Amount)}
+                    </div>
+                    <button class="forward-btn" onclick="forwardEstimate(${dataIndex})" title="เปลี่ยนเป็นรายจ่ายจริง">➡️</button>
+                    <button class="delete-btn" onclick="deleteEstimate(${dataIndex})" title="ยกเลิก/ลบ">🗑️</button>
+                `;
+                list.appendChild(item);
+            });
+        }
+        
+        function renderAdvanceList(advances) {
+             const list = document.getElementById('advanceList');
+            list.innerHTML = '';
+
+            if (!advances || advances.length === 0) {
+                list.innerHTML = '<p style="text-align: center; color: #999;">ไม่มีรายการเบิกเงินล่วงหน้า</p>';
+                return;
+            }
+            
+            advances.slice().reverse().forEach((a, originalIndex) => {
+                const item = document.createElement('div');
+                item.className = 'data-item estimate-item'; // Use estimate style for visibility
+                item.innerHTML = `
+                    <div class="item-details">
+                        <div class="item-description">เบิกเงินล่วงหน้าโดย ${a.Member}</div>
+                        <div class="item-meta">
+                            ${a.Timestamp ? new Date(a.Timestamp).toLocaleDateString('th-TH') : ''} | 
+                            บันทึกโดย: ${a['Logged By']}
+                        </div>
+                    </div>
+                    <div class="item-amount expense">
+                        -${formatNumber(a.Amount)}
+                    </div>
+                    `;
+                list.appendChild(item);
+            });
+        }
+
+        function renderSettlement(settlementData) {
+            const tbody = document.getElementById('settlementTable').querySelector('tbody');
+            tbody.innerHTML = '';
+
+            if (!settlementData || settlementData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #999;">ยังไม่มีข้อมูลสรุปบัญชี</td></tr>';
+                return;
+            }
+
+            settlementData.forEach(s => {
+                const netClass = s.netBalance >= 0 ? 'credit' : 'debt';
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${s.member}</td>
+                    <td>${formatNumber(s.paidOut)}</td>
+                    <td>${formatNumber(s.baseDebit)}</td>
+                    <td>${formatNumber(s.advanceDebt)}</td>
+                    <td class="net-balance-cell ${netClass}">${formatNumber(s.netBalance)}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+
+        // *** 4. ACTION FUNCTIONS ***
+        function toggleIncomeExpenseFields() {
+            const type = document.getElementById('transactionType').value;
+            document.getElementById('expenseFields').style.display = type === 'EXPENSE' ? 'block' : 'none';
+            document.getElementById('incomeFields').style.display = type === 'INCOME' ? 'block' : 'none';
+        }
+        
+        async function addTransaction() {
+            const user = localStorage.getItem(LOGGED_IN_USER_KEY);
+            const type = document.getElementById('transactionType').value;
+            const amount = document.getElementById('transactionAmount').value;
+            const description = document.getElementById('transactionDescription').value.trim();
+            
+            if (!user || !amount || !description) {
+                showNotification('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
+                return;
+            }
+
+            let payload = {
+                action: 'ADD_TRANSACTION',
+                user: user,
+                type: type,
+                amount: amount,
+                description: description
             };
 
-            const user = processedParams.user;
-            
-            // Handle actions that don't require login/user check first
-            if (action === 'LOGIN') {
-                result = login(user, processedParams.passcode);
-            } else {
-                // All other actions require a logged-in user
-                if (!user) {
-                    result = { success: false, message: 'Authentication required.' };
+            if (type === 'EXPENSE') {
+                const paidBy = document.getElementById('expensePaidBy').value;
+                const paymentType = document.getElementById('paymentType').value;
+                if (!paidBy) {
+                    showNotification('กรุณาเลือกผู้จ่ายเงิน', 'error');
+                    return;
+                }
+                payload.paidBy = paidBy;
+                payload.paymentType = paymentType;
+            } else if (type === 'INCOME') {
+                const member = document.getElementById('incomeMember').value;
+                payload.member = member;
+            }
+
+            try {
+                const result = await postData(payload);
+                if (result.success) {
+                    showNotification('บันทึกรายการสำเร็จ', 'success');
+                    // Clear fields
+                    document.getElementById('transactionAmount').value = '';
+                    document.getElementById('transactionDescription').value = '';
+                    await loadAllData();
                 } else {
-                    switch (action) {
-                        case 'GET_DATA':
-                            // The core function to retrieve all necessary data
-                            const transactionData = getSheetDataWithHeader(ss, SHEET_NAME.TRANSACTIONS);
-                            const estimateData = getSheetDataWithHeader(ss, SHEET_NAME.ESTIMATES);
-                            const advanceData = getSheetDataWithHeader(ss, SHEET_NAME.ADVANCE);
-                            const poolConfig = getConfigSettings(ss);
-                            
-                            const members = getSheetDataWithHeader(ss, SHEET_NAME.MEMBERS).map(row => row.MemberName);
-
-                            // V3: Get Settlement Data (Includes Pool Balance)
-                            const settlementResult = getSettlementData(ss);
-                            
-                            if (settlementResult.success) {
-                                result = {
-                                    success: true,
-                                    transactions: transactionData,
-                                    estimates: estimateData,
-                                    advance: advanceData,
-                                    poolBalance: settlementResult.poolNetBalance, // Pool Net Balance (Real money)
-                                    availableBalance: settlementResult.availableBalance, // Pool Balance - Total Estimate (Useable money)
-                                    settlement: settlementResult.settlementData, // V3 settlement data
-                                    members: members,
-                                    message: 'Data loaded successfully.'
-                                };
-                            } else {
-                                result = settlementResult;
-                            }
-                            break;
-
-                        case 'ADD_TRANSACTION':
-                            result = handleModification(ss, processedParams, 'ADD_TRANSACTION');
-                            break;
-                        case 'ADD_ESTIMATE':
-                            result = handleModification(ss, processedParams, 'ADD_ESTIMATE');
-                            break;
-                        case 'DELETE_TRANSACTION':
-                            result = handleModification(ss, processedParams, 'DELETE_TRANSACTION');
-                            break;
-                        case 'DELETE_ESTIMATE':
-                            result = handleModification(ss, processedParams, 'DELETE_ESTIMATE');
-                            break;
-                        case 'FORWARD_ESTIMATE':
-                            result = handleModification(ss, processedParams, 'FORWARD_ESTIMATE');
-                            break;
-                        case 'ADD_MEMBER':
-                            result = handleModification(ss, processedParams, 'ADD_MEMBER');
-                            break;
-                        case 'ADD_ADVANCE':
-                            result = handleModification(ss, processedParams, 'ADD_ADVANCE');
-                            break;
-                        case 'CLEAR_ACTIVE_USERS':
-                            result = clearActiveUsers(ss, processedParams.user);
-                            break;
-                        default:
-                            result = { success: false, message: `Unknown action: ${action}` };
-                            break;
-                    }
+                    showNotification(`บันทึกล้มเหลว: ${result.message}`, 'error');
                 }
+            } catch (e) {
+                showNotification(`เกิดข้อผิดพลาด: ${e}`, 'error');
             }
         }
-    } catch (error) {
-        Logger.log(error);
-        result = { success: false, message: `Server error: ${error.message}` };
-    }
+        
+        async function addEstimate() {
+            const user = localStorage.getItem(LOGGED_IN_USER_KEY);
+            const amount = document.getElementById('estimateAmount').value;
+            const description = document.getElementById('estimateDescription').value.trim();
 
-    // Return JSON response for API calls
-    return ContentService.createTextOutput(JSON.stringify(result))
-        .setMimeType(ContentService.MimeType.JSON);
-}
-
-
-// ====================================================================
-// CORE: LOGIN FUNCTION (Updated to use Input Text)
-// ====================================================================
-
-/**
- * Handles user login by checking against Member list and Admin config.
- * Regular members don't need a passcode. Admin needs a passcode.
- * @param {string} user The user name entered.
- * @param {string} passcode The passcode entered.
- * @returns {object} { success: boolean, message: string }
- */
-function login(user, passcode) {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    if (!user) {
-        return { success: false, message: 'กรุณากรอกชื่อผู้ใช้งาน' };
-    }
-
-    const members = getSheetDataWithHeader(ss, SHEET_NAME.MEMBERS).map(row => row.MemberName);
-    const config = getConfigSettings(ss);
-    const adminUser = config.AdminUser;
-    const adminPasscode = config.AdminPasscode;
-
-    // Check if the user is a regular member (case-insensitive)
-    const isMember = members.some(m => m.toLowerCase() === user.toLowerCase());
-
-    if (isMember) {
-        // Regular members can log in without a passcode check
-        logAction(ss, user, `LOGIN (Member)`);
-        return { success: true, message: 'เข้าสู่ระบบสำเร็จในฐานะสมาชิก' };
-    }
-
-    // Check if the user is the Admin (case-insensitive)
-    if (adminUser && user.toLowerCase() === adminUser.toLowerCase()) {
-        // Check Admin Passcode
-        if (passcode === adminPasscode) {
-            logAction(ss, user, `LOGIN (Admin)`);
-            return { success: true, message: 'เข้าสู่ระบบสำเร็จในฐานะผู้ดูแล' };
-        } else {
-            return { success: false, message: 'รหัสผ่านผู้ดูแลไม่ถูกต้อง' };
-        }
-    }
-
-    // If neither a member nor the admin
-    return { success: false, message: `ไม่พบชื่อผู้ใช้งาน "${user}" ในรายชื่อสมาชิก/ผู้ดูแล` };
-}
-
-// ====================================================================
-// CORE: SETTLEMENT LOGIC (V3 - Finalized for Credit/Debit)
-// ====================================================================
-
-/**
- * Calculates the V3 settlement data including Pool Net Balance and Available Balance.
- * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} ss The active spreadsheet.
- * @returns {object} { success: boolean, settlementData: array, poolNetBalance: number, availableBalance: number, ... }
- */
-function getSettlementData(ss) {
-    const transactionData = getSheetDataWithHeader(ss, SHEET_NAME.TRANSACTIONS);
-    const advanceData = getSheetDataWithHeader(ss, SHEET_NAME.ADVANCE);
-    const estimateData = getSheetDataWithHeader(ss, SHEET_NAME.ESTIMATES);
-    const memberNames = getSheetDataWithHeader(ss, SHEET_NAME.MEMBERS).map(row => row.MemberName);
-    const config = getConfigSettings(ss);
-    const numMembers = memberNames.length;
-
-    // 1. Initialize Settlement Data
-    const memberSettlement = memberNames.reduce((acc, name) => {
-        acc[name] = {
-            member: name,
-            paidOut: 0,         // Total money this person paid out (Credit to them)
-            incomeIn: 0,        // Total money this person put into the Pool (NOT credit, but reduces pool debt)
-            expensePool: 0,     // Total expense paid from the Pool
-            expenseIndividual: 0,// Total expense paid by individuals (will be split)
-            shareDebt: 0,       // Total debt/share from expenses (will be calculated)
-            advanceDebt: 0,     // Total Advance money this person took
-            netBalance: 0,      // Final Credit/Debt
-            baseDebit: 0        // Share of expense debt for display
-        };
-        return acc;
-    }, {});
-
-    let poolNetBalance = config.StartBalance || 0;
-    let totalEstimate = 0;
-    let totalSharedExpense = 0; // Total expense to be shared among members
-
-    // 2. Process Transactions (Pool Balance, PaidOut, IncomeIn, TotalSharedExpense)
-    transactionData.forEach(t => {
-        const amount = t.Amount;
-        const paidBy = t['Paid By'];
-        const member = t.Member; // For Income transactions
-
-        if (t.Type === 'INCOME') {
-            poolNetBalance += amount;
-            // Record who paid in (if applicable, otherwise it's Sponsor)
-            if (member && memberSettlement[member]) {
-                memberSettlement[member].incomeIn += amount; 
+            if (!user || !amount || !description) {
+                showNotification('กรุณากรอกข้อมูลรายการประเมินให้ครบถ้วน', 'error');
+                return;
             }
-        } else if (t.Type === 'EXPENSE') {
-            if (t['Payment Type'] === 'POOL') {
-                poolNetBalance -= amount;
-                memberSettlement[paidBy].expensePool += amount; // Track for reporting
-            } else if (t['Payment Type'] === 'INDIVIDUAL') {
-                memberSettlement[paidBy].paidOut += amount;
-                memberSettlement[paidBy].expenseIndividual += amount; // Track for reporting
-                totalSharedExpense += amount; // Add to total to be shared
-            }
-        }
-    });
-
-    // 3. Process Estimates (Calculate Total Estimate)
-    estimateData.forEach(e => {
-        totalEstimate += e.Amount;
-    });
-
-    // 4. Process Advances (Advance Debt)
-    advanceData.forEach(a => {
-        if (memberSettlement[a.Member]) {
-            memberSettlement[a.Member].advanceDebt += a.Amount;
-        }
-    });
-
-    // 5. Calculate Expense Share (The core V3 calculation)
-    
-    // a) Calculate total Individual Expenses to be shared
-    // This is already 'totalSharedExpense'
-    
-    // b) Calculate the share amount per member
-    const expenseSharePerMember = numMembers > 0 ? totalSharedExpense / numMembers : 0;
-
-    // c) Calculate Net Balance for each member
-    Object.keys(memberSettlement).forEach(name => {
-        const s = memberSettlement[name];
-        
-        // Expense Share Debt (What they owe for shared expenses)
-        s.shareDebt = expenseSharePerMember;
-        
-        // Final Net Expense Share (What they truly owe after factoring in their income/contributions/paid-outs)
-        // **V3 Logic:** Net expense share is fixed per person, but we must factor in their Income to Pool.
-        // We use the simpler Credit - Debt model:
-        
-        // CREDIT: Money paid out by the individual (INDIVIDUAL expense type)
-        // DEBIT: Expense share they must cover
-        // DEBIT: Advance debt they owe
-        
-        // This is the true expense they must cover *from their own pocket*
-        const finalNetExpenseShare = expenseSharePerMember; 
-        
-        // Final Net Balance: (Credit - Debt)
-        // (เงินที่จ่ายออกไปก่อน) - (ยอดที่ต้องรับผิดชอบส่วนกลาง) - (ยอด Advance ที่เบิกไป)
-        s.netBalance = s.paidOut - finalNetExpenseShare - s.advanceDebt; 
-        
-        // For display in the Debit column on the frontend
-        s.baseDebit = finalNetExpenseShare; 
-    });
-
-    return {
-        success: true,
-        settlementData: Object.values(memberSettlement),
-        members: memberNames,
-        poolNetBalance: poolNetBalance, // ยอดคงเหลือจริงในกองกลาง
-        availableBalance: poolNetBalance - totalEstimate // ยอดคงเหลือที่ใช้ได้
-    };
-}
-
-// ====================================================================
-// HELPER FUNCTIONS: (Modification, Data Retrieval, Logging)
-// ====================================================================
-
-/**
- * A centralized function to handle all modifications (Add/Delete/Forward).
- * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} ss The active spreadsheet.
- * @param {object} params The processed parameters from doGet.
- * @param {string} action The action type (e.g., 'ADD_TRANSACTION').
- * @returns {object} { success: boolean, message: string }
- */
-function handleModification(ss, params, action) {
-    let sheet;
-    let dataRow;
-
-    try {
-        switch (action) {
-            case 'ADD_TRANSACTION':
-                sheet = ss.getSheetByName(SHEET_NAME.TRANSACTIONS);
-                if (!sheet) throw new Error(`Sheet ${SHEET_NAME.TRANSACTIONS} not found.`);
-
-                if (!params.amount || !params.description || !params.type) {
-                    throw new Error('Transaction details are incomplete.');
-                }
-                
-                // Get Payment Type (Pool/Individual) for Expense, and Member for Income
-                let paymentType = '';
-                let paidBy = '';
-                let member = '';
-
-                if (params.type === 'EXPENSE') {
-                    paymentType = params.paymentType;
-                    paidBy = params.paidBy;
-                    if (!paidBy) throw new Error('Expense: ต้องระบุผู้จ่ายเงิน');
-                } else if (params.type === 'INCOME') {
-                    // Only record if member is explicitly selected, otherwise it's sponsor
-                    member = params.member || 'SPONSOR'; 
-                    paidBy = ''; // N/A for income
-                    paymentType = 'POOL';
-                }
-
-                // [Timestamp, Type, Amount, Description, Paid By, Payment Type, Member, Logged By]
-                dataRow = [
-                    new Date(), 
-                    params.type, 
-                    params.amount, 
-                    params.description, 
-                    paidBy, 
-                    paymentType, 
-                    member,
-                    params.user
-                ];
-                sheet.appendRow(dataRow);
-                logAction(ss, params.user, `${action}: ${params.type} ${params.amount}`);
-                return { success: true, message: 'บันทึกรายการสำเร็จ' };
-
-            case 'ADD_ESTIMATE':
-                sheet = ss.getSheetByName(SHEET_NAME.ESTIMATES);
-                if (!sheet) throw new Error(`Sheet ${SHEET_NAME.ESTIMATES} not found.`);
-
-                if (!params.amount || !params.description) {
-                    throw new Error('Estimate details are incomplete.');
-                }
-
-                // [Timestamp, Amount, Description, Logged By]
-                dataRow = [
-                    new Date(), 
-                    params.amount, 
-                    params.description, 
-                    params.user
-                ];
-                sheet.appendRow(dataRow);
-                logAction(ss, params.user, `${action}: ${params.amount}`);
-                return { success: true, message: 'บันทึกรายการประเมินสำเร็จ' };
             
-            case 'ADD_MEMBER':
-                sheet = ss.getSheetByName(SHEET_NAME.MEMBERS);
-                if (!sheet) throw new Error(`Sheet ${SHEET_NAME.MEMBERS} not found.`);
+            const payload = { 
+                action: 'ADD_ESTIMATE',
+                user: user,
+                amount: amount,
+                description: description
+            };
 
-                if (!params.description) { // description holds the new member name
-                    throw new Error('กรุณาระบุชื่อสมาชิก');
+            try {
+                const result = await postData(payload);
+                if (result.success) {
+                    showNotification('บันทึกรายการประเมินสำเร็จ', 'success');
+                    // Clear fields
+                    document.getElementById('estimateAmount').value = '';
+                    document.getElementById('estimateDescription').value = '';
+                    await loadAllData();
+                } else {
+                    showNotification(`บันทึกรายการประเมินล้มเหลว: ${result.message}`, 'error');
                 }
-                
-                const existingMembers = getSheetDataWithHeader(ss, SHEET_NAME.MEMBERS).map(row => row.MemberName.toLowerCase());
-                const newMemberName = params.description.trim();
-
-                if (existingMembers.includes(newMemberName.toLowerCase())) {
-                    throw new Error(`ชื่อสมาชิก "${newMemberName}" มีอยู่แล้ว`);
-                }
-
-                sheet.appendRow([newMemberName, new Date(), params.user]);
-                logAction(ss, params.user, `${action}: ${newMemberName}`);
-                return { success: true, message: `เพิ่มสมาชิก "${newMemberName}" สำเร็จ` };
-                
-            case 'ADD_ADVANCE':
-                sheet = ss.getSheetByName(SHEET_NAME.ADVANCE);
-                if (!sheet) throw new Error(`Sheet ${SHEET_NAME.ADVANCE} not found.`);
-
-                if (!params.amount || !params.member) {
-                    throw new Error('กรุณาระบุสมาชิกและจำนวนเงิน');
-                }
-                
-                // [Timestamp, Member, Amount, Logged By]
-                dataRow = [
-                    new Date(), 
-                    params.member, 
-                    params.amount, 
-                    params.user
-                ];
-                sheet.appendRow(dataRow);
-                logAction(ss, params.user, `${action}: ${params.member} ${params.amount}`);
-                return { success: true, message: 'บันทึกการเบิกเงินล่วงหน้าสำเร็จ' };
-                
-            case 'DELETE_TRANSACTION':
-            case 'DELETE_ESTIMATE':
-                const isTransaction = action === 'DELETE_TRANSACTION';
-                sheet = ss.getSheetByName(isTransaction ? SHEET_NAME.TRANSACTIONS : SHEET_NAME.ESTIMATES);
-                if (!sheet) throw new Error(`Sheet ${sheetName} not found.`);
-                
-                // rowIndex from client is 0-based for data array, so 1-based for sheet row (plus header row)
-                const sheetRow = params.rowIndex + 2; 
-
-                if (sheetRow > sheet.getLastRow() || sheetRow <= 1) {
-                    throw new Error('Row index is out of bounds.');
-                }
-                
-                // Optional: Get data before deletion for better logging
-                const deletedData = sheet.getRange(sheetRow, 1, 1, sheet.getLastColumn()).getValues()[0].join(', ');
-
-                sheet.deleteRow(sheetRow);
-                logAction(ss, params.user, `${action} (Row ${params.rowIndex + 1}): ${deletedData}`);
-                return { success: true, message: `ลบรายการสำเร็จ (แถวที่ ${params.rowIndex + 1})` };
-            
-            case 'FORWARD_ESTIMATE':
-                const estimateSheet = ss.getSheetByName(SHEET_NAME.ESTIMATES);
-                const transactionSheet = ss.getSheetByName(SHEET_NAME.TRANSACTIONS);
-                if (!estimateSheet || !transactionSheet) {
-                    throw new Error('Estimate or Transaction sheet not found.');
-                }
-
-                // rowIndex from client is 0-based for data array, so 1-based for sheet row (plus header row)
-                const estimateSheetRow = params.rowIndex + 2; 
-
-                if (estimateSheetRow > estimateSheet.getLastRow() || estimateSheetRow <= 1) {
-                    throw new Error('Estimate row index is out of bounds.');
-                }
-                
-                // 1. Get Estimate Data
-                const estimateRange = estimateSheet.getRange(estimateSheetRow, 1, 1, estimateSheet.getLastColumn());
-                const estimateValues = estimateRange.getValues()[0];
-                const estimateAmount = estimateValues[1]; // Amount is at index 1
-                const estimateDescription = estimateValues[2]; // Description is at index 2
-
-                // 2. Create Transaction Data Row
-                // [Timestamp, Type, Amount, Description, Paid By, Payment Type, Member, Logged By]
-                const transactionRow = [
-                    new Date(), 
-                    'EXPENSE', // Always expense when forwarding estimate
-                    estimateAmount, 
-                    `[จาก Estimate] ${estimateDescription}`, 
-                    params.user, // Assume the person forwarding is the one who paid out (Credit)
-                    'INDIVIDUAL', // Assume it's paid out personally (Credit/Shared)
-                    '',
-                    params.user
-                ];
-                
-                // 3. Append to Transactions
-                transactionSheet.appendRow(transactionRow);
-
-                // 4. Delete from Estimates
-                estimateSheet.deleteRow(estimateSheetRow);
-
-                logAction(ss, params.user, `FORWARD_ESTIMATE (Row ${params.rowIndex + 1}): ${estimateAmount} - ${estimateDescription}`);
-                return { success: true, message: 'บันทึกเป็นรายจ่ายจริงสำเร็จ' };
-
-            default:
-                throw new Error(`Invalid action: ${action}`);
+            } catch (e) {
+                showNotification(`เกิดข้อผิดพลาด: ${e}`, 'error');
+            }
         }
-    } catch (error) {
-        Logger.log(`Modification Error (${action}): ${error.message}`);
-        return { success: false, message: `ดำเนินการล้มเหลว: ${error.message}` };
-    }
-}
 
+        async function addMember() {
+            const user = localStorage.getItem(LOGGED_IN_USER_KEY);
+            const newMemberName = document.getElementById('newMemberName').value.trim();
 
-/**
- * Retrieves sheet data with the first row as headers.
- * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} ss The active spreadsheet.
- * @param {string} sheetName The name of the sheet.
- * @returns {Array<Object>} An array of objects where keys are column headers.
- */
-function getSheetDataWithHeader(ss, sheetName) {
-    const sheet = ss.getSheetByName(sheetName);
-    if (!sheet || sheet.getLastRow() < 1) return [];
+            if (!user || !newMemberName) {
+                showNotification('กรุณากรอกชื่อสมาชิกใหม่', 'error');
+                return;
+            }
 
-    const range = sheet.getDataRange();
-    const values = range.getValues();
-    
-    if (values.length < 2) return []; // Only header row
+            const payload = { 
+                action: 'ADD_MEMBER',
+                user: user,
+                description: newMemberName // Using description field for simplicity
+            };
 
-    const headers = values[0];
-    const data = values.slice(1);
-
-    return data.map(row => {
-        const obj = {};
-        headers.forEach((header, i) => {
-            obj[header] = row[i];
-        });
-        return obj;
-    });
-}
-
-/**
- * Retrieves configuration settings from the Config sheet.
- * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} ss The active spreadsheet.
- * @returns {object} An object containing all config key-value pairs.
- */
-function getConfigSettings(ss) {
-    const sheet = ss.getSheetByName(SHEET_NAME.CONFIG);
-    if (!sheet || sheet.getLastRow() < 2) {
-        return {
-            StartBalance: 0,
-            AdminUser: 'Admin',
-            AdminPasscode: '0000'
-        }; // Default values
-    }
-
-    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getValues();
-    const config = {};
-    
-    data.forEach(row => {
-        const key = row[0];
-        let value = row[1];
+            try {
+                const result = await postData(payload);
+                if (result.success) {
+                    showNotification('เพิ่มสมาชิกสำเร็จ', 'success');
+                    document.getElementById('newMemberName').value = '';
+                    await loadAllData(); // Reload data to update member lists
+                } else {
+                    showNotification(`เพิ่มสมาชิกล้มเหลว: ${result.message}`, 'error');
+                }
+            } catch (e) {
+                showNotification(`เกิดข้อผิดพลาด: ${e}`, 'error');
+            }
+        }
         
-        // Convert number-like values
-        if (!isNaN(value) && value !== '') {
-            value = parseFloat(value);
+        async function addAdvance() {
+            const user = localStorage.getItem(LOGGED_IN_USER_KEY);
+            const advanceMember = document.getElementById('advanceMember').value;
+            const advanceAmount = document.getElementById('advanceAmount').value;
+
+            if (!user || !advanceMember || !advanceAmount) {
+                showNotification('กรุณาเลือกสมาชิกและจำนวนเงิน', 'error');
+                return;
+            }
+
+            const payload = { 
+                action: 'ADD_ADVANCE',
+                user: user,
+                member: advanceMember, 
+                amount: advanceAmount
+            };
+
+            try {
+                const result = await postData(payload);
+                if (result.success) {
+                    showNotification('บันทึกการเบิกเงินล่วงหน้าสำเร็จ', 'success');
+                    document.getElementById('advanceAmount').value = '';
+                    await loadAllData();
+                } else {
+                    showNotification(`บันทึกล้มเหลว: ${result.message}`, 'error');
+                }
+            } catch (e) {
+                showNotification(`เกิดข้อผิดพลาด: ${e}`, 'error');
+            }
+        }
+        
+        async function clearActiveUsers() {
+            if (!confirm('คุณแน่ใจหรือไม่ว่าต้องการเคลียร์ผู้ใช้งานค้างทั้งหมด? ใช้ในกรณีฉุกเฉินเท่านั้น')) return;
+
+             const user = localStorage.getItem(LOGGED_IN_USER_KEY);
+             if (!user) {
+                showNotification('ไม่พบผู้ใช้งานที่ล็อกอิน', 'error');
+                return;
+            }
+
+            const payload = { 
+                action: 'CLEAR_ACTIVE_USERS',
+                user: user
+            };
+
+            try {
+                const result = await postData(payload);
+                if (result.success) {
+                    showNotification(result.message, 'success', 5000);
+                } else {
+                    showNotification(`ดำเนินการล้มเหลว: ${result.message}`, 'error');
+                }
+            } catch (e) {
+                showNotification(`เกิดข้อผิดพลาด: ${e}`, 'error');
+            }
+        }
+        
+        // --- DELETE & FORWARD ACTIONS ---
+        
+        // Delete Transaction
+        async function deleteTransaction(dataIndex) {
+            if (!confirm(`คุณต้องการลบรายการรายจ่าย/รายรับในแถวที่ ${dataIndex + 1} นี้ใช่หรือไม่?`)) return;
+
+            const user = localStorage.getItem(LOGGED_IN_USER_KEY);
+            
+            const payload = { 
+                action: 'DELETE_TRANSACTION',
+                user: user,
+                rowIndex: dataIndex 
+            };
+
+            try {
+                const result = await postData(payload);
+                
+                if (result.success) {
+                    showNotification('ลบรายการสำเร็จ', 'success');
+                    await loadAllData();
+                } else {
+                    showNotification(`ลบรายการล้มเหลว: ${result.message || 'ข้อผิดพลาด'}`, 'error');
+                }
+            } catch (e) {
+                showNotification(`เกิดข้อผิดพลาด: ${e}`, 'error');
+            }
+        }
+        
+        // Delete Estimate
+        async function deleteEstimate(dataIndex) {
+            if (!confirm(`คุณต้องการลบรายการประเมินในแถวที่ ${dataIndex + 1} นี้ใช่หรือไม่?`)) return;
+
+            const user = localStorage.getItem(LOGGED_IN_USER_KEY);
+            
+            const payload = { 
+                action: 'DELETE_ESTIMATE',
+                user: user,
+                rowIndex: dataIndex 
+            };
+
+            try {
+                const result = await postData(payload);
+                
+                if (result.success) {
+                    showNotification('ลบรายการประเมินสำเร็จ', 'success');
+                    await loadAllData();
+                } else {
+                    showNotification(`ลบรายการประเมินล้มเหลว: ${result.message || 'ข้อผิดพลาด'}`, 'error');
+                }
+            } catch (e) {
+                showNotification(`เกิดข้อผิดพลาด: ${e}`, 'error');
+            }
         }
 
-        config[key] = value;
-    });
+        // Forward Estimate to Transaction
+        async function forwardEstimate(dataIndex) {
+            if (!confirm(`คุณต้องการเปลี่ยนรายการประเมินแถวที่ ${dataIndex + 1} เป็นรายการรายจ่ายจริงใช่หรือไม่? รายการเดิมจะถูกลบ`)) return;
 
-    return config;
-}
+            const user = localStorage.getItem(LOGGED_IN_USER_KEY);
+            
+            const payload = { 
+                action: 'FORWARD_ESTIMATE',
+                user: user,
+                rowIndex: dataIndex 
+            };
 
-/**
- * Clears the list of active/logged-in users (used for emergency logout/lockout).
- * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} ss The active spreadsheet.
- * @param {string} user The user who executed the action (for logging).
- * @returns {object} { success: boolean, message: string }
- */
-function clearActiveUsers(ss, user) {
-    const sheet = ss.getSheetByName(SHEET_NAME.ACTIVE_USERS);
-    if (!sheet) {
-         return { success: false, message: 'Sheet ActiveUsers not found.' };
-    }
-    
-    // Clear all rows except the header
-    sheet.getRange(2, 1, sheet.getLastRow(), sheet.getLastColumn()).clearContent();
-    
-    logAction(ss, user, 'CLEAR_ACTIVE_USERS');
-    return { success: true, message: 'เคลียร์ผู้ใช้งานค้างทั้งหมดสำเร็จ' };
-}
+            showNotification('กำลังเปลี่ยนเป็นรายจ่ายจริง...', 'info', 60000); 
+            
+            try {
+                const result = await postData(payload);
+                
+                if (result.success) {
+                    showNotification('บันทึกเป็นรายจ่ายจริงสำเร็จ', 'success');
+                    await loadAllData(); // โหลดข้อมูลใหม่เพื่ออัปเดตทั้ง 2 แท็บและยอดคงเหลือ
+                } else {
+                    showNotification(`ดำเนินการล้มเหลว: ${result.message || 'ข้อผิดพลาด'}`, 'error');
+                }
+            } catch (e) {
+                showNotification(`เกิดข้อผิดพลาด: ${e}`, 'error');
+            }
+        }
+        
+        // --- UI FUNCTIONS ---
+        function openTab(evt, tabName) {
+            let i, tabcontent, tabbuttons;
+            tabcontent = document.getElementsByClassName("tab-content");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
 
+            tabbuttons = document.getElementsByClassName("tab-button");
+            for (i = 0; i < tabbuttons.length; i++) {
+                tabbuttons[i].className = tabbuttons[i].className.replace(" active", "");
+            }
 
-/**
- * Logs an action to the Logs sheet.
- * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} ss The active spreadsheet.
- * @param {string} user The user who performed the action.
- * @param {string} action The description of the action.
- */
-function logAction(ss, user, action) {
-    const sheet = ss.getSheetByName(SHEET_NAME.LOGS);
-    if (!sheet) return; 
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.className += " active";
+            
+            // Reload data if needed for the tab
+            if (tabName === 'Settlement' || tabName === 'ViewData') {
+                loadAllData();
+            }
+            if (tabName === 'AddTransaction') {
+                toggleIncomeExpenseFields();
+            }
+        }
 
-    const timestamp = new Date().toLocaleString('th-TH', { 
-        year: 'numeric', month: '2-digit', day: '2-digit', 
-        hour: '2-digit', minute: '2-digit', second: '2-digit', 
-        hour12: false 
-    });
-    
-    sheet.appendRow([timestamp, user, action]);
-}
+        function showNotification(message, type, duration = 3000) {
+            const bar = document.getElementById('notificationBar');
+            
+            // Clear previous classes
+            bar.className = 'notification-bar';
+            
+            bar.textContent = message;
+            bar.classList.add(type);
+            
+            // Ensure it's displayed
+            requestAnimationFrame(() => {
+                bar.classList.add('show');
+            });
+            
+            if (duration > 0) {
+                setTimeout(() => {
+                    bar.classList.remove('show');
+                }, duration);
+            }
+        }
+        
+        // Initialize on load
+        window.onload = checkAutoLogin;
+    </script>
+</body>
+</html>
