@@ -904,6 +904,12 @@
                 logsData = result.logs;
                 membersData = result.members || []; // ✅ NEW
                 advanceData = result.advance || []; // ✅ NEW
+
+                // ✅ NEW: โหลด Settlement Data
+                const settlementResult = await postData({ action: 'GET_SETTLEMENT_DATA' });
+                if (settlementResult.success) {
+                    renderSettlement(settlementResult.settlementData); // เรียกฟังก์ชันแสดงผล
+                }
                 
                 // เรียกใช้ฟังก์ชันแสดงผลทีละส่วนอย่างถูกต้อง
                 renderOverview(result); 
@@ -918,6 +924,118 @@
                 showNotification(`โหลดข้อมูลล้มเหลว: ${result.message || 'ข้อผิดพลาด'}`, 'error');
             }
         }
+
+        // ในไฟล์ poolvilla2.html (ส่วน JavaScript)
+
+function renderSettlement(settlementData) {
+    const container = document.getElementById('settlement-summary');
+    let html = '';
+    
+    // แปลง Object ให้เป็น Array เพื่อให้เรียงลำดับและวนลูปได้ง่าย
+    const membersList = Object.keys(settlementData).map(name => ({
+        name: name,
+        data: settlementData[name]
+    }));
+    
+    if (membersList.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #888;">กรุณาเพิ่มสมาชิกใน Tab สมาชิก/เบิกเงิน ก่อน</p>';
+        return;
+    }
+
+    // สร้างตารางสรุป
+    html += `
+        <h3 style="margin-top: 15px;">ตารางสรุปหนี้สิน/เครดิตสุทธิ</h3>
+        <table class="transaction-table">
+            <thead>
+                <tr>
+                    <th style="width: 25%;">สมาชิก</th>
+                    <th style="width: 30%; text-align: right;">จ่ายไปก่อน (เครดิต)</th>
+                    <th style="width: 25%; text-align: right;">เบิก + หนี้ส่วนกลาง (หนี้)</th>
+                    <th style="width: 20%; text-align: right;">ยอดสุทธิ</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    membersList.forEach(m => {
+        const d = m.data;
+        const netBalance = d.netBalance;
+        const balanceClass = netBalance > 0 ? 'text-danger' : (netBalance < 0 ? 'text-success' : '');
+        const netText = netBalance > 0 ? `ติดหนี้ ${Math.abs(netBalance).toLocaleString('th-TH', { minimumFractionDigits: 2 })}` : (netBalance < 0 ? `รับคืน ${Math.abs(netBalance).toLocaleString('th-TH', { minimumFractionDigits: 2 })}` : 'เคลียร์แล้ว');
+
+        html += `
+            <tr>
+                <td><strong>${m.name}</strong></td>
+                <td class="text-success" style="text-align: right;">${d.paidOut.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+                <td class="text-danger" style="text-align: right;">${(d.paidByOthers + d.advanceDebt).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+                <td class="${balanceClass}" style="font-weight: bold; text-align: right;">
+                    ${netText}
+                </td>
+            </tr>
+        `;
+    });
+
+    html += `
+            </tbody>
+        </table>
+    `;
+
+    // แสดงผลลัพธ์การโอนเงินเพื่อเคลียร์
+    const creditors = membersList.filter(m => m.data.netBalance < 0).sort((a, b) => a.data.netBalance - b.data.netBalance); // เจ้าหนี้ (ต้องได้รับเงินคืน)
+    const debtors = membersList.filter(m => m.data.netBalance > 0).sort((a, b) => b.data.netBalance - a.data.netBalance); // ลูกหนี้ (ต้องจ่ายเงิน)
+    
+    let transferHtml = '<h3 style="margin-top: 20px;">การโอนเงินเพื่อเคลียร์หนี้ (ใครจ่ายให้ใคร)</h3>';
+    let transfers = [];
+
+    // --- Core Settlement Logic (Simplified) ---
+    let currentDebtors = debtors.map(d => ({ name: d.name, amount: d.data.netBalance }));
+    let currentCreditors = creditors.map(c => ({ name: c.name, amount: Math.abs(c.data.netBalance) }));
+
+    let i = 0; 
+    let j = 0;
+
+    while (i < currentDebtors.length && j < currentCreditors.length) {
+        const debtor = currentDebtors[i];
+        const creditor = currentCreditors[j];
+
+        const transferAmount = Math.min(debtor.amount, creditor.amount);
+
+        if (transferAmount > 0.01) { // โอนเมื่อยอดมากกว่า 1 สตางค์
+            transfers.push({
+                from: debtor.name,
+                to: creditor.name,
+                amount: transferAmount
+            });
+
+            debtor.amount -= transferAmount;
+            creditor.amount -= transferAmount;
+        }
+
+        if (debtor.amount <= 0.01) { // ลูกหนี้เคลียร์ครบ
+            i++;
+        }
+        if (creditor.amount <= 0.01) { // เจ้าหนี้ได้รับครบ
+            j++;
+        }
+    }
+    // --- End Core Settlement Logic ---
+
+    if (transfers.length > 0) {
+        transferHtml += `
+            <ul style="list-style-type: none; padding: 0;">
+                ${transfers.map(t => 
+                    `<li style="padding: 8px 0; border-bottom: 1px dashed #ddd; font-weight: bold;">
+                        ${t.from} ➡️ ${t.to}: 
+                        <span class="text-danger">${t.amount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span> บาท
+                    </li>`).join('')}
+            </ul>
+        `;
+    } else {
+        transferHtml += '<p style="text-align: center; color: #28a745; font-weight: bold;">🥳 ยอดหนี้สินทุกคนเคลียร์กันแล้ว! (หรือมีเงินกองกลางเหลือเยอะ)</p>';
+    }
+
+    container.innerHTML = html + transferHtml;
+}
 
         // Utility สำหรับ Populating Dropdowns
         function populateMemberDropdowns(members) {
@@ -1241,4 +1359,5 @@
     </script>
 </body>
 </html>
+
 
