@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pool Villa Budget App</title>
+    <style>
+        /* BASE & MOBILE-FIRST STYLES */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f7f6;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px; /* จำกัดความกว้างสำหรับมือถือ */
+            margin: 0 auto;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+
+        /* HEADER & STATUS BAR */
+        header {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        /* BALANCE DISPLAY */
+        #budget-display {
+            text-align: center;
+            padding: 10px 0;
+            margin-bottom: 5px; 
+            font-size: 1.1em;
+            font-weight: bold; 
+            background-color: #e3f2fd; 
+            color: #0d47a1; 
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        #balance-display {
+            text-align: center;
+            padding: 10px 0;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+            font-weight: bold;
+            background-color: #ffffff; /* พื้นหลังสีขาว */
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+.balance-positive {
+    color: #28a745; /* สีเขียว */
+}
+
+.balance-negative {
+    color: #dc3545; /* สีแดง */
+}
+        #account-name-display {
+            font-weight: bold;
+            font-size: 1.1em;
+            /* เพิ่ม user info container */
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        #user-greeting-display {
+            font-size: 0.8em;
+            opacity: 0.9;
+            margin-top: 2px;
+        }
+        #current-datetime {
+            font-size: 0.85em;
+            opacity: 0.8;
+            text-align: right;
+        }
+
+        /* LOGIN SCREEN STYLES */
+        #login-screen {
+            padding: 40px 15px;
+            text-align: center;
+        }
+        .login-input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        
+        /* BUTTON STYLES (Modern & Mobile-friendly) */
+        .btn-primary {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s, opacity 0.3s;
+            margin-top: 10px;
+        }
+        .btn-login {
+            background-color: #28a745;
+            color: white;
+        }
+        .btn-login:hover:not(:disabled) {
+            background-color: #218838;
+        }
+        .btn-action {
+            background-color: #007bff;
+            color: white;
+            margin-bottom: 15px;
+        }
+        .btn-action:hover:not(:disabled) {
+            background-color: #0056b3;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        .btn-secondary:hover:not(:disabled) {
+            background-color: #5a6268;
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* MAIN CONTENT AREA */
+        .content-section {
+            background-color: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 15px;
+        }
+
+        /* NAVIGATION TABS (Mobile-friendly Grid) */
+        /* ✅ FIX: เปลี่ยนเป็น 4 คอลัมน์สำหรับ Tabs หลัก */
+        .tab-buttons-main {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr); 
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .tab-buttons-sub { /* สำหรับ Tab ย่อย เช่น รับ/จ่าย */
+            display: grid;
+            grid-template-columns: 1fr 1fr; 
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .tab-button {
+            padding: 10px 5px; /* ลด Padding ให้เหลือพื้นที่สำหรับ 4 ปุ่ม */
+            border: 2px solid #007bff;
+            border-radius: 10px;
+            background-color: white;
+            color: #007bff;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s, color 0.2s;
+            font-size: 0.85em; /* ลดขนาดฟอนต์ */
+        }
+        .tab-button.active {
+            background-color: #007bff;
+            color: white;
+        }
+        
+        /* FORM LAYOUT (Simplified for Mobile) */
+        .form-row {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 15px;
+        }
+        .form-row label {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .form-row input[type="number"],
+        .form-row input[type="text"],
+        .form-row select {
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        
+        /* New Radio/Checkbox Group Style */
+        .radio-group {
+            display: flex;
+            gap: 10px;
+        }
+        .radio-group label {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .radio-group input[type="radio"] {
+            display: none;
+        }
+        .radio-group input[type="radio"]:checked + label {
+            background-color: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        
+        /* TABLE STYLES (Mobile-friendly, Compact) */
+        .transaction-table {
+            width: 100%;
+            border-collapse: collapse; 
+            margin-top: 10px;
+            font-size: 0.85em; 
+        }
+
+        .transaction-table th, .transaction-table td {
+            padding: 8px 5px; 
+            border-bottom: 1px solid #eee;
+            text-align: left;
+        }
+
+        .transaction-table th {
+            background-color: #f4f4f4;
+            font-weight: bold;
+            color: #555;
+            position: sticky; 
+            top: 0;
+            z-index: 10;
+        }
+
+        .transaction-table td:nth-child(2) { 
+            text-align: right;
+            white-space: nowrap; 
+            font-weight: bold;
+        }
+
+        .transaction-table td:last-child { 
+            text-align: center; 
+        }
+
+        .transaction-table .income-row {
+            background-color: #e6ffe6; 
+        }
+
+        .transaction-table .expense-row {
+            background-color: #fff0f0; 
+        }
+
+        .transaction-table .delete-btn {
+            padding: 3px 6px;
+            font-size: 0.75em;
+            margin-left: 0; 
+        }
+
+        /* เพิ่มคลาสสีที่ใช้ในตาราง */
+        .text-success { color: #28a745; }
+        .text-danger { color: #dc3545; }
+
+        /* เพิ่ม CSS สำหรับทำให้รายการเลื่อนได้ */
+        .scrollable-list {
+            max-height: 400px; 
+            overflow-y: auto; 
+            border: 1px solid #ccc; 
+            border-radius: 8px;
+            padding: 0 10px; 
+        }
+        
+        /* ALERT/TOAST NOTIFICATION (Stylish) */
+        #notification {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            border-radius: 8px;
+            color: white;
+            z-index: 2000;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        .success { background-color: #28a745; }
+        .error { background-color: #dc3545; }
+        .info { background-color: #ffc107; color: #333; }
+        .show { opacity: 1; display: block; }
+
+        /* FOOTER & LOGOUT */
+        footer {
+            text-align: center;
+            padding: 15px;
+            margin-top: auto;
+            color: #888;
+            font-size: 0.8em;
+        }
+        #logout-btn {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 0.9em;
+            margin-left: 10px;
+            opacity: 0.8;
+            transition: opacity 0.3s;
+        }
+        #logout-btn:hover {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="notification"></div>
+
+    <header>
+        <div>
+            <div id="account-name-display">กำลังโหลด...</div>
+        </div>
+        <div>
+            <span id="current-datetime"></span>
+            <button id="logout-btn" style="display: none;">ออกจากระบบ</button>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <section id="login-screen">
+            <h2>เข้าสู่ระบบ</h2>
+            <input type="password" id="passcode" class="login-input" placeholder="รหัสผ่าน" required>
+            <input type="text" id="username" class="login-input" placeholder="ชื่อผู้ใช้งาน" required>
+            <button id="login-btn" class="btn-primary btn-login" onclick="login()">เข้าสู่ระบบ</button>
+        </section>
+
+        <section id="app-screen" style="display: none;">
+            
+            <div id="budget-display">
+                <strong>ยอดงบประมาณรวม (รายรับทั้งหมด):</strong> 
+                <span id="total-budget-amount">กำลังคำนวณ...</span>
+            </div>
+
+            <div id="balance-display">
+                กำลังคำนวณยอดคงเหลือ...
+            </div>
+
+            <div id="estimate-total-display" style="
+                    text-align: center; 
+                    padding: 5px 0; 
+                    margin-bottom: 10px; 
+                    font-size: 1.0em; 
+                    color: #ffc107; 
+                    font-weight: bold;
+                    display: none; 
+                    ">
+                    ยอดประเมินจ่ายรวม: 
+                    <span class="estimate-amount">0.00 บาท</span>
+            </div>
+            
+            <div class="tab-buttons-main">
+                <button class="tab-button active" onclick="showTab('add')">เพิ่มรายการ</button>
+                <button class="tab-button" onclick="showTab('estimate')">ประเมินจ่าย</button>
+                <button class="tab-button" onclick="showTab('members')">สมาชิก/เบิกเงิน</button>
+                <button class="tab-button" onclick="showTab('settlement')">เคลียร์หนี้</button>
+            </div>
+
+            <div id="add-tab" class="content-section">
+                <h2>เพิ่มรายการ รับ/จ่าย</h2>
+                
+                <div class="tab-buttons-sub" style="margin-bottom: 15px;">
+                    <button id="btn-expense" class="tab-button active" data-type="EXPENSE">รายจ่าย</button>
+                    <button id="btn-income" class="tab-button" data-type="INCOME">รายรับ</button>
+                </div>
+
+                <div id="payment-type-group" class="form-row">
+                    <label>ประเภทการจ่าย (ใช้ตอนรายจ่าย)</label>
+                    <div class="radio-group">
+                        <input type="radio" id="pay-pool" name="payment-type" value="POOL" checked>
+                        <label for="pay-pool">เงินกองกลาง</label>
+                        
+                        <input type="radio" id="pay-advance" name="payment-type" value="ADVANCE">
+                        <label for="pay-advance">เงินเบิก</label>
+                        
+                        <input type="radio" id="pay-personal" name="payment-type" value="PERSONAL">
+                        <label for="pay-personal">เงินส่วนตัว (ออกก่อน)</label>
+                    </div>
+                </div>
+
+                <div id="paid-by-group" class="form-row">
+                    <label for="paid-by-member">ผู้จ่ายเงิน (Paid By)</label>
+                    <select id="paid-by-member" required>
+                        <option value="">-- กรุณาเลือกสมาชิก --</option>
+                    </select>
+                </div>
+
+
+                <div class="form-row">
+                    <label for="transaction-description">รายละเอียด</label>
+                    <input type="text" id="transaction-description" placeholder="ค่าอาหาร, ค่าเดินทาง, อื่นๆ" required>
+                </div>
+
+                <div class="form-row">
+                    <label for="transaction-amount">ยอดเงิน</label>
+                    <input type="number" id="transaction-amount" placeholder="0.00" required>
+                </div>
+
+                <button class="btn-primary btn-action" onclick="addTransaction()">บันทึกรายการ</button>
+            </div>
+
+            <div id="estimate-tab" class="content-section" style="display: none;">
+                <h2>รายการประเมินจ่ายล่วงหน้า</h2>
+                <div style="font-weight: bold; margin-bottom: 15px;">ยอดรวมประเมิน: <span id="total-estimate-display">0.00</span></div>
+
+                <div id="estimate-list-container">
+                    </div>
+
+                <div class="content-section" style="margin-top: 15px;">
+                    <h3>เพิ่มรายการประเมิน</h3>
+                    
+                    <div class="form-row">
+                        <label for="estimate-description">รายละเอียดประเมิน</label>
+                        <input type="text" id="estimate-description" placeholder="ค่ามัดจำ, ค่าเข้าชม" required>
+                    </div>
+
+                    <div class="form-row">
+                        <label for="estimate-amount">ยอดเงินประเมิน</label>
+                        <input type="number" id="estimate-amount" placeholder="0.00" required>
+                    </div>
+
+                    <button class="btn-primary btn-action" onclick="addEstimate()">เพิ่มรายการประเมิน</button>
+                </div>
+            </div>
+            
+            <div id="members-tab" class="content-section" style="display: none;">
+                <h2>จัดการสมาชิก & เบิกเงินล่วงหน้า</h2>
+                
+                <div id="member-list-container" class="content-section">
+                    <h3>รายชื่อสมาชิก (<span id="member-count">0</span> คน)</h3>
+                    </div>
+                
+                <div class="content-section">
+                    <h3>เพิ่มสมาชิกใหม่</h3>
+                    <div class="form-row">
+                        <label for="new-member-name">ชื่อสมาชิก</label>
+                        <input type="text" id="new-member-name" placeholder="ชื่อ-นามสกุล หรือชื่อเล่น" required>
+                    </div>
+                    <button class="btn-primary btn-action" onclick="addMember()">เพิ่มสมาชิก</button>
+                </div>
+
+                <div class="content-section">
+                    <h3>บันทึกการเบิกเงินกองกลางล่วงหน้า (Loan)</h3>
+                    <div class="form-row">
+                        <label for="advance-member">สมาชิกที่เบิก</label>
+                        <select id="advance-member" required>
+                            <option value="">-- กรุณาเลือกสมาชิก --</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="advance-amount">ยอดเงินที่เบิก</label>
+                        <input type="number" id="advance-amount" placeholder="0.00" required>
+                    </div>
+                    <button class="btn-primary btn-secondary" onclick="addAdvanceDraw()">บันทึกการเบิกเงิน</button>
+                </div>
+
+                <div id="advance-list-container" class="content-section">
+                    <h3>ประวัติการเบิกเงิน</h3>
+                    </div>
+            </div>
+
+            <div id="settlement-tab" class="content-section" style="display: none;">
+                <h2>สรุปยอดเคลียร์หนี้</h2>
+                <p>⚠️ **อยู่ระหว่างการพัฒนา**</p>
+                <p>ฟังก์ชันนี้จะใช้ข้อมูลจากรายการรายจ่าย (Paid By, Payment Type) และรายการเบิกเงินล่วงหน้า เพื่อคำนวณว่าใครเป็นเจ้าหนี้และลูกหนี้สุทธิ</p>
+                
+                <button class="btn-primary btn-action" onclick="showNotification('ฟังก์ชันกำลังถูกพัฒนา', 'info')">คำนวณยอดหนี้</button>
+                
+                <div id="settlement-summary">
+                    </div>
+            </div>
+
+            <div class="list-section">
+                <h2>รายการบัญชี (รับ-จ่าย)</h2>
+
+                <div id="transactions-container" class="scrollable-list">
+                    <table id="transactions-table" class="transaction-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40%;">รายละเอียด/ผู้จ่าย</th>
+                                <th style="width: 30%; text-align: right;">ประเภท/จำนวน</th>
+                                <th style="width: 30%; text-align: center;"></th> 
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="3" class="no-data">ไม่มีรายการรับ-จ่าย</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div id="data-display-section">
+            </div>
+
+            <div class="content-section">
+                <h3>ยอดผู้เข้าชมทั้งหมด</h3>
+                <p style="font-size: 1.5em; font-weight: bold;" id="visitor-count">กำลังโหลด...</p>
+            </div>
+
+            <div class="content-section">
+                <h3>ประวัติการดำเนินการล่าสุด</h3>
+                <pre id="log-display"></pre>
+            </div>
+            
+
+        </section>
+    </div>
+
+    <footer>
+        <p>Pool Villa Budget App | Make by K-mew</p>
+    </footer>
+
+    <script>
+        // *** 1. CONFIGURATION & STATE ***
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyaxvPma9VT6xAK-dHIxEi4-v7NAtHTg7MLtdc4lG42Nw_N8QwwhWkdQyJ7hGr8EXsbA/exec'; // *** อย่าลืมเปลี่ยนเป็น URL ของคุณ ***
+        let currentTab = 'add';
+        let transactionType = 'EXPENSE'; 
+        const LOGGED_IN_USER_KEY = 'budgetAppUser'; 
+        const LOGGED_IN_PASSCODE_KEY = 'budgetAppPasscode'; 
+
+        // ✅ NEW STATE
+        let transactionsData = []; 
+        let estimatesData = [];
+        let logsData = [];
+        let membersData = []; // ✅ NEW
+        let advanceData = []; // ✅ NEW
+
+        // *** 2. CORE UTILITY FUNCTIONS ***
+
+        // Utility: Show stylish notification (Toast)
+        function showNotification(message, type = 'info', duration = 3000) {
+            const notif = document.getElementById('notification');
+            notif.className = ''; 
+            notif.classList.add(type, 'show');
+            notif.textContent = message;
+            notif.style.display = 'block';
+            
+            if (duration > 0 && duration !== 60000) { 
+                setTimeout(() => {
+                    notif.classList.remove('show');
+                    setTimeout(() => {
+                        notif.style.display = 'none';
+                    }, 500);
+                }, duration);
+            }
+        }
+
+        // Utility: Update current date/time display
+        function updateDateTime() {
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('th-TH', { 
+                year: 'numeric', month: 'short', day: 'numeric' 
+            });
+            const timeStr = now.toLocaleTimeString('th-TH', { 
+                hour: '2-digit', minute: '2-digit' 
+            });
+            document.getElementById('current-datetime').textContent = `${dateStr} ${timeStr}`;
+        }
+        setInterval(updateDateTime, 1000); 
+        updateDateTime(); 
+
+        // Core API Call (Uses GET method for all data exchange)
+        async function postData(payload) {
+            document.querySelectorAll('.btn-primary, .btn-secondary').forEach(btn => btn.disabled = true);
+            showNotification('รอสักครู่...', 'info', 60000); 
+
+            const queryString = Object.keys(payload)
+                .map(key => encodeURIComponent(key) + '=' + encodeURIComponent(payload[key]))
+                .join('&');
+
+            const get_url = WEB_APP_URL + '?' + queryString;
+            
+            try {
+                const response = await fetch(get_url, {
+                    method: 'GET'
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error(`HTTP Error Status: ${response.status}`, errorText);
+                    return { success: false, message: `Server ตอบกลับ Error ${response.status} (อาจเป็น URL ผิด/สิทธิ์เข้าถึงผิด)` };
+                }
+                
+                const responseText = await response.text();
+                
+                try {
+                    const result = JSON.parse(responseText);
+                    
+                    if (result.success && ['ADD_TRANSACTION', 'ADD_ESTIMATE', 'DELETE_TRANSACTION', 'DELETE_ESTIMATE', 'FORWARD_ESTIMATE', 'ADD_MEMBER', 'ADD_ADVANCE'].includes(payload.action)) {
+                        // โหลดข้อมูลใหม่หลังจากเพิ่ม/แก้ไข/ลบ
+                         await loadAllData(); 
+                    }
+                    
+                    return result;
+                } catch (e) {
+                    console.error("Failed to parse JSON:", responseText, e);
+                    return { success: false, message: 'Server ส่งข้อมูลกลับมาผิดรูปแบบ (ไม่ใช่ JSON)' };
+                }
+
+            } catch (error) {
+                console.error("Fetch/Server Connection Error:", error);
+                return { success: false, message: 'การเชื่อมต่อ Network ล้มเหลว' };
+            } finally {
+                document.querySelectorAll('.btn-primary, .btn-secondary').forEach(btn => btn.disabled = false);
+                document.getElementById('notification').classList.remove('show', 'info');
+                document.getElementById('notification').style.display = 'none';
+            }
+        }
+        
+        // *** 3. UI MANAGEMENT ***
+
+        function showTab(tabName) {
+            // ซ่อน/แสดง Tabs หลักทั้งหมด
+            document.getElementById('add-tab').style.display = tabName === 'add' ? 'block' : 'none';
+            document.getElementById('estimate-tab').style.display = tabName === 'estimate' ? 'block' : 'none';
+            document.getElementById('members-tab').style.display = tabName === 'members' ? 'block' : 'none';
+            document.getElementById('settlement-tab').style.display = tabName === 'settlement' ? 'block' : 'none';
+            
+            // อัปเดตสถานะ Active ของปุ่ม
+            document.querySelectorAll('.tab-buttons-main .tab-button').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`.tab-buttons-main button[onclick="showTab('${tabName}')"]`).classList.add('active');
+            
+            currentTab = tabName;
+        }
+
+        document.getElementById('btn-expense').addEventListener('click', function() {
+            document.getElementById('btn-expense').classList.add('active');
+            document.getElementById('btn-income').classList.remove('active');
+            document.getElementById('payment-type-group').style.display = 'flex';
+            document.getElementById('paid-by-group').style.display = 'flex';
+            transactionType = 'EXPENSE';
+        });
+        document.getElementById('btn-income').addEventListener('click', function() {
+            document.getElementById('btn-income').classList.add('active');
+            document.getElementById('btn-expense').classList.remove('active');
+            document.getElementById('payment-type-group').style.display = 'none';
+            document.getElementById('paid-by-group').style.display = 'none';
+            transactionType = 'INCOME';
+        });
+        
+        // *** 4. LOGIN & AUTHENTICATION ***
+
+        async function loadAccountName() {
+            document.getElementById('account-name-display').innerHTML = 'กำลังโหลดบัญชี...'; 
+            
+            const payload = { action: 'LOGIN', passcode: '000000', user: 'System' };
+            const result = await postData(payload); 
+
+            if (result.success && result.accountName) {
+                document.getElementById('account-name-display').innerHTML = `
+                    <span>${result.accountName}</span>
+                `;
+                return true; 
+            } else {
+                document.getElementById('account-name-display').innerHTML = `
+                    <span style="color: red;">บัญชีหลัก: โหลดล้มเหลว</span>
+                `;
+                showNotification(`โหลดบัญชีล้มเหลว: ${result.message || 'ข้อผิดพลาดไม่ทราบสาเหตุ'}`, 'error', 10000);
+                return false; 
+            }
+        }
+
+        async function checkAutoLogin() { 
+            await loadAccountName(); 
+            
+            const storedUser = localStorage.getItem(LOGGED_IN_USER_KEY);
+            const storedPasscode = localStorage.getItem(LOGGED_IN_PASSCODE_KEY);
+            
+            if (storedUser && storedPasscode) {
+                document.getElementById('username').value = storedUser;
+                document.getElementById('passcode').value = storedPasscode;
+                
+                const loginSuccess = await login(true); 
+                
+                if (!loginSuccess) {
+                    document.getElementById('login-screen').style.display = 'block';
+                    document.getElementById('app-screen').style.display = 'none';
+                }
+            } else {
+                document.getElementById('login-screen').style.display = 'block';
+                document.getElementById('app-screen').style.display = 'none';
+            }
+        }
+        
+        async function login(isAuto = false) {
+            const passcode = document.getElementById('passcode').value.trim();
+            const user = document.getElementById('username').value.trim();
+            
+            if (!passcode || !user) {
+                showNotification('กรุณากรอกรหัสผ่านและชื่อผู้ใช้งาน', 'info');
+                return false;
+            }
+
+            const loginBtn = document.getElementById('login-btn');
+            loginBtn.disabled = true;
+
+            const payload = { action: 'LOGIN', passcode: passcode, user: user, isAuto: isAuto }; 
+            const result = await postData(payload);
+
+            loginBtn.disabled = false; 
+
+            if (result.success) {
+                localStorage.setItem(LOGGED_IN_USER_KEY, user);
+                localStorage.setItem(LOGGED_IN_PASSCODE_KEY, passcode);
+                
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('app-screen').style.display = 'block';
+                
+                document.getElementById('account-name-display').innerHTML = `
+                    <span>${result.accountName}</span>
+                    <span id="user-greeting-display">Make by K-mew, คุณ ${result.user}</span>
+                `;
+                document.getElementById('logout-btn').style.display = 'inline';
+                
+                showNotification('เข้าสู่ระบบสำเร็จ', 'success');
+                setTimeout(loadAllData, 100); 
+                return true;
+
+            } else {
+                showNotification(`เข้าสู่ระบบล้มเหลว: ${result.message || 'ข้อผิดพลาดไม่ทราบสาเหตุ'}`, 'error');
+                
+                if (isAuto) {
+                    localStorage.removeItem(LOGGED_IN_USER_KEY);
+                    localStorage.removeItem(LOGGED_IN_PASSCODE_KEY);
+                    await loadAccountName();
+                    document.getElementById('login-screen').style.display = 'block';
+                    document.getElementById('app-screen').style.display = 'none';
+                }
+                return false;
+            }
+        }
+
+        async function logout() {
+            const user = localStorage.getItem(LOGGED_IN_USER_KEY);
+            
+            await postData({ action: 'LOGOUT', user: user });
+            
+            localStorage.removeItem(LOGGED_IN_USER_KEY);
+            localStorage.removeItem(LOGGED_IN_PASSCODE_KEY);
+            
+            document.getElementById('login-screen').style.display = 'block';
+            document.getElementById('app-screen').style.display = 'none';
+            document.getElementById('logout-btn').style.display = 'none';
+            
+            await loadAccountName(); 
+            
+            showNotification('ออกจากระบบแล้ว', 'info');
+        }
+        document.getElementById('logout-btn').addEventListener('click', logout);
+
+        // *** 5. DATA ACTIONS ***
+        
+        async function addTransaction() {
+            const description = document.getElementById('transaction-description').value.trim();
+            const amount = parseFloat(document.getElementById('transaction-amount').value);
+            const user = localStorage.getItem(LOGGED_IN_USER_KEY);
+
+            if (!description || isNaN(amount) || amount <= 0) {
+                showNotification('กรุณากรอกรายละเอียดและยอดเงินที่ถูกต้อง', 'info');
+                return;
+            }
+            
+            let paidBy = null;
+            let paymentType = null;
+            
+            if (transactionType === 'EXPENSE') {
+                paidBy = document.getElementById('paid-by-member').value;
+                paymentType = document.querySelector('input[name="payment-type"]:checked').value;
+
+                if (!paidBy) {
+                    showNotification('กรุณาเลือก "ผู้จ่ายเงิน (Paid By)"', 'info');
+                    return;
+                }
+            }
+
+
+            const payload = { 
+                action: 'ADD_TRANSACTION', 
+                user: user, 
+                type: transactionType, 
+                description: description, 
+                amount: amount,
+                paidBy: paidBy, // ✅ NEW
+                paymentType: paymentType // ✅ NEW
+            };
+            
+            const result = await postData(payload);
+            
+            if (result.success) {
+                showNotification('บันทึกรายการสำเร็จ', 'success');
+                document.getElementById('transaction-description').value = '';
+                document.getElementById('transaction-amount').value = '';
+            } else {
+                showNotification(`บันทึกรายการล้มเหลว: ${result.message || 'ข้อผิดพลาด'}`, 'error');
+            }
+        }
+        
+        async function addEstimate() {
+            const description = document.getElementById('estimate-description').value.trim();
+            const amount = parseFloat(document.getElementById('estimate-amount').value);
+            const user = localStorage.getItem(LOGGED_IN_USER_KEY);
+
+            if (!description || isNaN(amount) || amount <= 0) {
+                showNotification('กรุณากรอกรายละเอียดและยอดเงินประเมินที่ถูกต้อง', 'info');
+                return;
+            }
+
+            const payload = { 
+                action: 'ADD_ESTIMATE', user: user, description: description, amount: amount
+            };
+            
+            const result = await postData(payload);
+            
+            if (result.success) {
+                showNotification('เพิ่มรายการประเมินสำเร็จ', 'success');
+                document.getElementById('estimate-description').value = '';
+                document.getElementById('estimate-amount').value = '';
+            } else {
+                showNotification(`เพิ่มรายการประเมินล้มเหลว: ${result.message || 'ข้อผิดพลาด'}`, 'error');
+            }
+        }
+        
+        async function addMember() {
+            const memberName = document.getElementById('new-member-name').value.trim();
+            const user = localStorage.getItem(LOGGED_IN_USER_KEY);
+
+            if (!memberName) {
+                showNotification('กรุณากรอกชื่อสมาชิก', 'info');
+                return;
+            }
+            
+            const payload = { action: 'ADD_MEMBER', user: user, memberName: memberName };
+            const result = await postData(payload);
+            
+            if (result.success) {
+                showNotification('เพิ่มสมาชิกสำเร็จ', 'success');
+                document.getElementById('new-member-name').value = '';
+            } else {
+                showNotification(`เพิ่มสมาชิกล้มเหลว: ${result.message || 'ข้อผิดพลาด'}`, 'error');
+            }
+        }
+
+        async function addAdvanceDraw() {
+            const memberName = document.getElementById('advance-member').value;
+            const amount = parseFloat(document.getElementById('advance-amount').value);
+            const user = localStorage.getItem(LOGGED_IN_USER_KEY);
+            
+            if (!memberName) {
+                showNotification('กรุณาเลือกสมาชิกที่เบิกเงิน', 'info');
+                return;
+            }
+            if (isNaN(amount) || amount <= 0) {
+                showNotification('กรุณากรอกยอดเงินที่เบิกให้ถูกต้อง', 'info');
+                return;
+            }
+
+            const payload = { action: 'ADD_ADVANCE', user: user, memberName: memberName, amount: amount };
+            const result = await postData(payload);
+
+            if (result.success) {
+                showNotification('บันทึกการเบิกเงินสำเร็จ', 'success');
+                document.getElementById('advance-amount').value = '';
+                document.getElementById('advance-member').selectedIndex = 0; // Reset Dropdown
+            } else {
+                showNotification(`บันทึกการเบิกเงินล้มเหลว: ${result.message || 'ข้อผิดพลาด'}`, 'error');
+            }
+        }
+
+        // *** 6. DATA DISPLAY ***
+        
+        async function loadAllData() {
+            showNotification('กำลังโหลดข้อมูล...', 'info', 60000); 
+            const payload = { action: 'GET_DATA' };
+            const result = await postData(payload);
+
+            if (result.success) {
+                // อัปเดตตัวแปรหลัก
+                transactionsData = result.transactions;
+                estimatesData = result.estimates;
+                logsData = result.logs;
+                membersData = result.members || []; // ✅ NEW
+                advanceData = result.advance || []; // ✅ NEW
+                
+                // เรียกใช้ฟังก์ชันแสดงผลทีละส่วนอย่างถูกต้อง
+                renderOverview(result); 
+                renderTransactionData(transactionsData); 
+                renderEstimateData(estimatesData);
+                renderLogs(logsData); 
+                renderMembers(membersData); // ✅ NEW
+                renderAdvance(advanceData); // ✅ NEW
+
+                showNotification('โหลดข้อมูลสำเร็จ', 'success');
+            } else {
+                showNotification(`โหลดข้อมูลล้มเหลว: ${result.message || 'ข้อผิดพลาด'}`, 'error');
+            }
+        }
+
+        // Utility สำหรับ Populating Dropdowns
+        function populateMemberDropdowns(members) {
+            const dropdowns = [
+                document.getElementById('paid-by-member'),
+                document.getElementById('advance-member')
+            ];
+
+            dropdowns.forEach(select => {
+                const selectedValue = select.value;
+                select.innerHTML = '<option value="">-- กรุณาเลือกสมาชิก --</option>'; 
+                
+                members.forEach(member => {
+                    const option = document.createElement('option');
+                    option.value = member;
+                    option.textContent = member;
+                    if (member === selectedValue) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                });
+            });
+        }
+        
+        function renderMembers(members) {
+            const listElement = document.getElementById('member-list-container');
+            const memberCountElement = document.getElementById('member-count');
+            memberCountElement.textContent = members.length;
+            
+            listElement.innerHTML = `
+                <h3>รายชื่อสมาชิก (${members.length} คน)</h3>
+                <ul style="list-style-type: none; padding: 0;">
+                ${members.map(m => `<li style="padding: 5px 0; border-bottom: 1px dotted #eee;">${m}</li>`).join('')}
+                </ul>
+            `;
+            
+            // ✅ NEW: อัปเดต Dropdown ในฟอร์มอื่น ๆ
+            populateMemberDropdowns(members);
+        }
+
+        function renderAdvance(advance) {
+            const listElement = document.getElementById('advance-list-container');
+            listElement.innerHTML = '<h3>ประวัติการเบิกเงิน</h3>'; 
+
+            if (!advance || advance.length === 0) {
+                listElement.innerHTML += '<p style="text-align: center; color: #888;">ไม่มีรายการเบิกเงิน</p>';
+                return;
+            }
+            
+            let totalAdvanceDebt = 0;
+            const latestAdvance = advance.slice().reverse().slice(0, 10);
+
+            let html = `
+                <table class="transaction-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50%;">สมาชิก</th>
+                            <th style="width: 30%; text-align: right;">ยอดเงิน</th>
+                            <th style="width: 20%; text-align: center;">โดย</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            latestAdvance.forEach(a => {
+                const amount = parseFloat(a.Amount) || 0;
+                totalAdvanceDebt += amount;
+                
+                html += `
+                    <tr>
+                        <td>
+                            ${a.MemberName} 
+                            <div style="font-size: 0.7em; color: #888;">${a.Timestamp}</div>
+                        </td>
+                        <td class="text-danger">
+                            ${amount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td style="text-align: center;">${a.User}</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                    </tbody>
+                </table>
+                <p style="font-weight: bold; text-align: right; margin-top: 10px;">ยอดเบิกคงค้างรวม: <span class="text-danger">${totalAdvanceDebt.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span> บาท</p>
+            `;
+            
+            listElement.innerHTML = html;
+        }
+
+        function renderTransactionData(transactions) {
+            const listElement = document.querySelector('#transactions-table tbody'); 
+            listElement.innerHTML = ''; 
+
+            if (!transactions || transactions.length === 0) {
+                listElement.innerHTML = '<tr><td colspan="3" class="no-data">ไม่มีรายการรับ-จ่าย</td></tr>';
+                return;
+            }
+            
+            const latestTransactions = transactions.slice().reverse().slice(0, 10);
+
+            latestTransactions.forEach((t) => {
+                const typeClass = t.Type === 'INCOME' ? 'income-row' : 'expense-row';
+                const typeTextClass = t.Type === 'INCOME' ? 'text-success' : 'text-danger';
+                
+                let typeLabel = t.Type === 'INCOME' ? 'รับ' : 'จ่าย';
+                let paidByDetail = t.PaidBy && t.PaidBy !== '-' ? `(โดย ${t.PaidBy})` : '';
+                
+                if (t.PaymentType && t.PaymentType !== 'INCOME') {
+                    typeLabel += ` (${t.PaymentType.substring(0, 1)})`; // P, A, E
+                }
+
+
+                const amount = (parseFloat(t.Amount) || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 });
+                
+                const row = document.createElement('tr');
+                row.className = `${typeClass}`; 
+
+                row.innerHTML = `
+                    <td>
+                        ${t.Description || '-'} 
+                        <div style="font-size: 0.7em; color: #888;">${t.Timestamp} | ${paidByDetail}</div>
+                    </td>
+                    <td class="${typeTextClass}">
+                        ${typeLabel}<br>
+                        ${amount}
+                    </td>
+                    <td style="text-align: center;">
+                        <button onclick="deleteTransaction('${t.Type}', ${t['Data Index']})" class="delete-btn">ลบ</button>
+                    </td>
+                `;
+                listElement.appendChild(row);
+            });
+        }
+
+        function renderEstimateData(estimates) {
+             let html = '';
+            
+            let totalEstimate = 0;
+            
+            if (estimates.length > 0) {
+                 html += `<table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40%;">รายการ</th>
+                                    <th style="width: 25%; text-align: right;">ยอดเงิน</th>
+                                    <th style="width: 35%; text-align: center;"></th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+                
+                estimates.forEach((row, index) => {
+                    const amount = parseFloat(row.Amount);
+                    totalEstimate += amount;
+
+                    html += `
+                        <tr>
+                            <td>${row.Description}</td>
+                            <td style="text-align: right;">${amount.toLocaleString('th-TH')}</td>
+                            <td style="text-align: center;">
+                                <button class="btn-primary btn-login" style="padding: 5px 8px; font-size: 0.8em; width: auto; margin: 2px;" onclick="forwardEstimate(${index})">จ่ายจริง</button>
+                                <button class="btn-secondary" style="padding: 5px 8px; font-size: 0.8em; width: auto; margin: 2px;" onclick="deleteEstimate(${index})">ลบ</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                html += `</tbody></table>`;
+            } else {
+                 html += `<p style="text-align: center; color: #888;">ไม่มีรายการประเมิน</p>`;
+            }
+            
+            // ล้างและแสดงผล
+            const listSection = document.getElementById('estimate-list-container');
+            listSection.innerHTML = html;
+            
+            document.getElementById('total-estimate-display').textContent = totalEstimate.toLocaleString('th-TH', { 
+                minimumFractionDigits: 2, maximumFractionDigits: 2 
+            });
+        }
+        
+        function renderLogs(logs) { 
+            const logElement = document.getElementById('log-display');
+            if (logs && logs.length > 0) { 
+                const latestLogs = logs.slice(-10).reverse();
+                logElement.textContent = latestLogs.map(log => 
+                    `[${log.Timestamp}] ${log.User}: ${log.Action}`
+                ).join('\n');
+            } else {
+                logElement.textContent = 'ไม่มีประวัติการดำเนินการ';
+            }
+        }
+        
+        function renderOverview(result) {
+            // 1. แสดงยอด Budget
+            const totalIncome = parseFloat(result.totalBudget) || 0;
+            document.getElementById('total-budget-amount').textContent = totalIncome.toLocaleString('th-TH', {
+                minimumFractionDigits: 2, maximumFractionDigits: 2
+            });
+            
+            // 2. คำนวณยอดเงินที่ใช้ได้จริง (Available Balance)
+            const availableBalanceAmount = parseFloat(result.availableBalance) || 0;
+            const totalEstimateAmount = parseFloat(result.totalEstimate) || 0; 
+            
+            const balanceElement = document.getElementById('balance-display');
+            const balanceClass = availableBalanceAmount >= 0 ? 'balance-positive' : 'balance-negative';
+            
+            balanceElement.innerHTML = `
+                ยอดเงินคงเหลือ (ใช้ได้จริง): 
+                <div class="${balanceClass}">
+                    ${availableBalanceAmount.toLocaleString('th-TH', { 
+                        minimumFractionDigits: 2, 
+                        maximumFractionDigits: 2 
+                    })} บาท
+                </div>`;
+
+            // 3. แสดงยอดประเมินจ่ายรวม
+            const estimateDisplayElement = document.getElementById('estimate-total-display');
+            if (estimateDisplayElement) {
+                if (totalEstimateAmount > 0) {
+                    estimateDisplayElement.style.display = 'block';
+                    estimateDisplayElement.innerHTML = `
+                        ยอดประเมินจ่ายรวม: 
+                        <span class="estimate-amount">${totalEstimateAmount.toLocaleString('th-TH', { 
+                            minimumFractionDigits: 2, 
+                            maximumFractionDigits: 2 
+                        })} บาท</span>
+                    `;
+                } else {
+                    estimateDisplayElement.style.display = 'none'; 
+                }
+            }
+
+
+            // 4. แสดงยอดผู้เข้าชมทั้งหมด
+            const visitorCount = parseInt(result.visitorCount) || 0;
+            let visitorDetail = '';
+            
+            if (result.visitors && result.visitors.length > 0) {
+                const uniqueUsers = [...new Set(result.visitors
+                    .map(v => v.User.toString().trim())
+                    .filter(u => u !== 'System_Check' && u !== 'System'))
+                ];
+                
+                if (uniqueUsers.length > 0) {
+                    visitorDetail = `<br><span style="font-size: 0.6em; font-weight: normal; color: #6c757d;">เข้าชมโดย: ${uniqueUsers.join(', ')}</span>`;
+                }
+            }
+
+            const visitorElement = document.getElementById('visitor-count'); 
+            visitorElement.innerHTML = `${visitorCount} ครั้ง${visitorDetail}`;
+        }
+        
+        // Delete Transaction
+        async function deleteTransaction(type, dataIndex) {
+            if (!confirm(`คุณต้องการลบรายการ ${type} ในแถวที่ ${dataIndex + 1} นี้ใช่หรือไม่?`)) return;
+
+            const user = localStorage.getItem(LOGGED_IN_USER_KEY);
+            
+            const payload = { 
+                action: 'DELETE_TRANSACTION',
+                user: user,
+                rowIndex: dataIndex 
+            };
+
+            const result = await postData(payload);
+            
+            if (result.success) {
+                showNotification('ลบรายการสำเร็จ', 'success');
+            } else {
+                showNotification(`ลบรายการล้มเหลว: ${result.message || 'ข้อผิดพลาด'}`, 'error');
+            }
+        }
+        
+        // Delete Estimate
+        async function deleteEstimate(dataIndex) {
+            if (!confirm(`คุณต้องการลบรายการประเมินในแถวที่ ${dataIndex + 1} นี้ใช่หรือไม่?`)) return;
+
+            const user = localStorage.getItem(LOGGED_IN_USER_KEY);
+            
+            const payload = { 
+                action: 'DELETE_ESTIMATE',
+                user: user,
+                rowIndex: dataIndex 
+            };
+
+            const result = await postData(payload);
+            
+            if (result.success) {
+                showNotification('ลบรายการประเมินสำเร็จ', 'success');
+            } else {
+                showNotification(`ลบรายการประเมินล้มเหลว: ${result.message || 'ข้อผิดพลาด'}`, 'error');
+            }
+        }
+
+        // Forward Estimate to Transaction
+        async function forwardEstimate(dataIndex) {
+            if (!confirm(`คุณต้องการเปลี่ยนรายการประเมินแถวที่ ${dataIndex + 1} เป็นรายการรายจ่ายจริงใช่หรือไม่? รายการเดิมจะถูกลบ`)) return;
+
+            const user = localStorage.getItem(LOGGED_IN_USER_KEY);
+            
+            const payload = { 
+                action: 'FORWARD_ESTIMATE',
+                user: user,
+                rowIndex: dataIndex 
+            };
+
+            showNotification('กำลังเปลี่ยนเป็นรายจ่ายจริง...', 'info', 60000); 
+            const result = await postData(payload);
+            
+            if (result.success) {
+                showNotification('บันทึกเป็นรายจ่ายจริงสำเร็จ', 'success');
+            } else {
+                showNotification(`ดำเนินการล้มเหลว: ${result.message || 'ข้อผิดพลาด'}`, 'error');
+            }
+        }
+
+        // Initialize on load
+        window.onload = checkAutoLogin;
+    </script>
+</body>
+</html>
