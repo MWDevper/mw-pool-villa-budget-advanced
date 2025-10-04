@@ -602,7 +602,7 @@
         // โหลดเฉพาะรายชื่อสมาชิกสำหรับการ Login
         async function loadLoginData() {
             try {
-                const result = await postData({ action: 'GET_MEMBERS' });
+                const result = await postData({ action: 'GET_DATA' });
                 if (result.success && result.members) {
                     allMembers = result.members;
                     populateMemberSelects();
@@ -1191,3 +1191,4 @@
     </script>
 </body>
 </html>
+
