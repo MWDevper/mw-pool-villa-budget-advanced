@@ -526,8 +526,7 @@
             <h2>Pool Villa Budget App</h2>
             <div class="form-group">
                 <label for="loginUser">ชื่อผู้ใช้งาน</label>
-                <select id="loginUser" required>
-                    </select>
+                <input type="text" id="loginUser" placeholder="เช่น สมชาย, ผู้ดูแล" required>
             </div>
             <div class="form-group">
                 <label for="passcode">รหัสผ่าน</label>
@@ -601,26 +600,26 @@
         
         // โหลดเฉพาะรายชื่อสมาชิกสำหรับการ Login
         async function loadLoginData() {
-            try {
-                const result = await postData({ action: 'GET_MEMBERS' });
-                if (result.success && result.members) {
-                    allMembers = result.members;
-                    populateMemberSelects();
-                    // populate Login dropdown
-                    const loginSelect = document.getElementById('loginUser');
-                    loginSelect.innerHTML = '<option value="">-- เลือกผู้ใช้ --</option>';
-                    result.members.forEach(member => {
-                        const option = document.createElement('option');
-                        option.value = member;
-                        option.textContent = member;
-                        loginSelect.appendChild(option);
-                    });
-                } else {
-                    showNotification('ไม่พบรายชื่อสมาชิก', 'error');
-                }
-            } catch (error) {
-                showNotification(`โหลดข้อมูล Login ล้มเหลว: ${error.toString()}`, 'error');
-            }
+            // try {
+            //     const result = await postData({ action: 'GET_MEMBERS' });
+            //     if (result.success && result.members) {
+            //         allMembers = result.members;
+            //         populateMemberSelects();
+            //         // populate Login dropdown
+            //         const loginSelect = document.getElementById('loginUser');
+            //         loginSelect.innerHTML = '<option value="">-- เลือกผู้ใช้ --</option>';
+            //         result.members.forEach(member => {
+            //             const option = document.createElement('option');
+            //             option.value = member;
+            //             option.textContent = member;
+            //             loginSelect.appendChild(option);
+            //         });
+            //     } else {
+            //         showNotification('ไม่พบรายชื่อสมาชิก', 'error');
+            //     }
+            // } catch (error) {
+            //     showNotification(`โหลดข้อมูล Login ล้มเหลว: ${error.toString()}`, 'error');
+            // }
         }
         
         // --- UTILITY ---
@@ -1191,5 +1190,6 @@
     </script>
 </body>
 </html>
+
 
 
