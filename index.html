@@ -1,1 +1,1593 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pool Villa Budget App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Noto+Sans+Thai:wght@100..900&display=swap');
+        
+        /* BASE & MOBILE-FIRST STYLES */
+        body {
+            font-family: 'Noto Sans Thai', 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f7f6;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+
+        /* CARD STYLE */
+        .card {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            margin-bottom: 15px;
+            padding: 20px;
+        }
+
+        /* HEADER & UTILITIES */
+        header {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-radius: 0 0 8px 8px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 1000;
+            transition: opacity 0.3s;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid #fff;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #1f2937;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1001;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        .notification.show {
+            opacity: 1;
+        }
+
+        /* FORM STYLES */
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #4b5563;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 1em;
+            transition: border-color 0.2s;
+        }
+
+        .form-control:focus {
+            border-color: #3b82f6;
+            outline: none;
+        }
+
+        .btn-primary {
+            background-color: #3b82f6;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .btn-primary:hover {
+            background-color: #2563eb;
+        }
+        
+        .btn-green {
+            background-color: #10b981;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .btn-green:hover {
+            background-color: #059669;
+        }
+        
+        .btn-red {
+            background-color: #ef4444;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .btn-red:hover {
+            background-color: #dc2626;
+        }
+
+
+        /* Dashboard Styles */
+        .balance-amount {
+            font-size: 3rem;
+            font-weight: 700;
+            color: #3b82f6;
+            margin-top: 5px;
+        }
+
+        .transaction-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .income-amount {
+            color: #10b981;
+            font-weight: 600;
+        }
+
+        .expense-amount {
+            color: #ef4444;
+            font-weight: 600;
+        }
+
+        .user-info {
+            font-size: 0.9rem;
+            color: #ccc;
+        }
+
+        /* Specific Share Layout */
+        #specificShareContainer .share-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+        #specificShareContainer .share-row input {
+            flex-grow: 1;
+        }
+        #specificShareContainer .share-row label {
+            width: 80px;
+            text-align: right;
+            margin-bottom: 0;
+        }
+
+        /* Login Screen Positioning */
+        #loginScreen {
+            max-width: 400px;
+            margin: 10vh auto;
+            text-align: center;
+        }
+
+        /* Member List Styles */
+        .member-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px dashed #e5e7eb;
+        }
+        .member-list-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Settlement Specific Styles */
+        .settlement-card {
+            background-color: #f0f9ff; /* Light blue background */
+            border: 2px solid #3b82f6;
+        }
+        .transfer-list-item {
+            padding: 5px 0;
+            border-bottom: 1px dotted #e0e7ff;
+            font-weight: 500;
+        }
+        .initial-fund-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            padding: 5px 0;
+            border-bottom: 1px dotted #f3f4f6;
+        }
+        .initial-fund-row input {
+            width: 120px;
+            text-align: right;
+            padding: 4px 8px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="spinner"></div>
+        <p id="loadingMessage">กำลังโหลด...</p>
+    </div>
+
+    <div id="notificationContainer" class="notification"></div>
+
+    <div class="container">
+        
+        <header>
+            <h1 class="text-xl font-bold">Pool Budget by mew</h1>
+            <div id="userInfo" class="user-info hidden">ผู้ใช้: <span></span></div>
+        </header>
+
+        <main id="loginScreen" class="card">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-700">เข้าสู่ระบบ</h2>
+            <p class="mb-6 text-gray-500">กรุณาเลือกชื่อสมาชิกและใส่รหัสผ่าน</p>
+            <div class="form-group">
+                <label for="memberSelect">ชื่อสมาชิก</label>
+                <select id="memberSelect" class="form-control">
+                    </select>
+            </div>
+            <div class="form-group">
+                <label for="passcode">รหัสผ่าน (4 หลัก: ใช้ 1234)</label>
+                <input type="password" id="passcode" maxlength="4" placeholder="ใส่รหัสผ่าน" class="form-control">
+            </div>
+            <button id="loginBtn" class="btn-green">เข้าสู่ระบบ</button>
+        </main>
+
+        <main id="appDashboard" class="hidden">
+            
+            <div class="card text-center">
+                <h2 class="text-xl font-semibold text-gray-600 mb-2">ยอดคงเหลือ Pool Fund</h2>
+                <div class="balance-display">
+                    <p class="balance-amount" id="currentBalance">0.00 ฿</p>
+                    <p class="text-sm text-gray-500">ยอดเงินรวม ณ ปัจจุบัน (เงินสดในมือ)</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 class="text-xl font-semibold text-blue-600 mb-4">บันทึกรายการใหม่</h2>
+                <form id="transactionForm">
+                    
+                    <div class="form-group">
+                        <label for="typeSelect">ประเภทรายการ</label>
+                        <select id="typeSelect" class="form-control">
+                            <option value="expense">รายจ่าย</option>
+                            <option value="income">รายรับ (เติมเงินกองกลาง)</option>
+                        </select>
+                    </div>
+
+                    <div id="expenseFields">
+                        <div class="form-group">
+                            <label for="paidSource">แหล่งที่มาของเงินที่จ่าย</label>
+                            <select id="paidSource" class="form-control">
+                                </select>
+                        </div>
+                        
+                        <div class="form-group" id="splitTypeContainer">
+                            <label for="splitType">การแบ่งจ่าย</label>
+                            <select id="splitType" class="form-control">
+                                <option value="equal">แบ่งเท่ากัน (หารตามจำนวนสมาชิก)</option>
+                                <option value="specific">กำหนดสัดส่วน/ยอดเงินเฉพาะ</option>
+                            </select>
+                        </div>
+
+                        <div id="specificShareContainer" class="hidden card p-3 bg-gray-50 border border-gray-200">
+                            <p class="text-sm font-semibold mb-2 text-gray-600">กำหนดส่วนแบ่งที่แต่ละคนต้องจ่าย</p>
+                            </div>
+                    </div>
+
+                    <div id="incomeFields" class="hidden">
+                        <p class="text-sm text-gray-500 mb-3">รายการรายรับจะถูกรวมเข้า Pool Fund เท่านั้น</p>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="descriptionInput">รายละเอียดรายการ</label>
+                        <input type="text" id="descriptionInput" placeholder="ค่าอาหาร, ค่าที่พัก, ฯลฯ" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="amountInput">จำนวนเงินรวม</label>
+                        <input type="number" id="amountInput" placeholder="0.00" min="0.01" step="0.01" class="form-control" required>
+                    </div>
+
+                    <button type="submit" class="btn-primary" id="submitTransactionBtn">บันทึกรายการ</button>
+                </form>
+            </div>
+            
+            <div class="card settlement-card">
+                <h3 class="text-xl font-semibold text-blue-700 mb-3 border-b pb-2">ปิดบัญชีและสรุปยอดโอน</h3>
+                <p class="text-sm text-gray-600 mb-4">ขั้นตอนนี้จะนำเงินกองกลางที่เหลือมาหารคืน และสรุปว่าใครต้องโอนให้ใครบ้าง</p>
+                <button id="calculateSettlementBtn" class="btn-red">คำนวณยอดชำระหนี้ทั้งหมด</button>
+                
+                <div id="settlementResult" class="mt-4 hidden card bg-white">
+                    <h4 class="text-lg font-bold text-gray-800 mb-2">สรุปผลการชำระหนี้</h4>
+                    <p id="poolRefundSummary" class="text-sm text-green-600 mb-2 font-semibold"></p>
+                    
+                    <h5 class="font-semibold mt-3 mb-1 border-t pt-2">รายการโอนระหว่างสมาชิก:</h5>
+                    <div id="transferListContainer">
+                        <p class="text-gray-500 text-sm">ไม่มีรายการโอน</p>
+                    </div>
+                    
+                    <button id="exportPdfBtn" class="btn-green mt-4">Export รายงาน PDF</button> 
+
+                    <button id="resetAppBtn" class="btn-primary mt-4 bg-gray-600 hover:bg-gray-700">รีเซ็ตข้อมูลทั้งหมด (เริ่มใหม่)</button>
+                </div>
+            </div>
+
+            <div class="card" id="netBalanceReport"> <h3 class="text-xl font-semibold text-gray-700 mb-3 border-b pb-2">ยอดสรุปรายบุคคล (Net Balance)</h3>
+                <p class="text-sm text-gray-500 mb-3">กรุณากำหนดจำนวนเงินตั้งต้นที่แต่ละคนนำเข้ากองกลางก่อนคำนวณ</p>
+                <div id="initialFundInputContainer">
+                    </div>
+                <hr class="my-4">
+                <div id="netBalanceContainer">
+                    </div>
+            </div>
+            
+            <div class="card" id="transactionListReport"> <h3 class="text-xl font-semibold text-gray-700 mb-3 border-b pb-2">ประวัติรายการล่าสุด</h3>
+                <div id="transactionsContainer">
+                    <p class="text-center text-gray-500" id="noTransactions">ไม่มีรายการในประวัติ</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="text-xl font-semibold text-gray-700 mb-3 border-b pb-2">จัดการสมาชิก</h3>
+                
+                <div id="memberListContainer" class="mb-4">
+                    </div>
+
+                <form id="addMemberForm" class="flex gap-2">
+                    <input type="text" id="newMemberName" placeholder="ชื่อสมาชิกใหม่ (เช่น E, F)" class="form-control flex-grow" required>
+                    <button type="submit" class="bg-indigo-500 text-white p-2 rounded-lg hover:bg-indigo-600 transition duration-150">เพิ่ม</button>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- CONSTANTS & MOCK DATA ---
+        const DATA_KEY = 'poolVillaBudgetMockDataV3'; // Updated to V3 for new structure
+        const LOGGED_IN_USER_KEY = 'poolVillaUser';
+
+        let LOGGED_IN_USER = null; // Current logged-in member (e.g., A, B, C)
+        
+        // Ensure jsPDF is available globally if possible
+        const { jsPDF } = window.jspdf || {};
+
+        // --- UTILITIES ---
+
+        function formatCurrency(amount) {
+            return parseFloat(amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") + ' ฿';
+        }
+
+        function showLoading(message = "กำลังโหลด...") {
+            document.getElementById('loadingMessage').textContent = message;
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.add('hidden');
+        }
+
+        function showNotification(message, type = 'info', duration = 3000) {
+            const container = document.getElementById('notificationContainer');
+            container.textContent = message;
+            container.className = `notification show bg-${type === 'success' ? 'green-600' : type === 'error' ? 'red-600' : 'blue-600'}`;
+
+            setTimeout(() => {
+                container.classList.remove('show');
+            }, duration);
+        }
+
+        /**
+         * Converts member account balances (Pool balance) into a list of transfers
+         * using the "Simplifying Debts" algorithm (minimizing transactions).
+         * @param {Object} finalBalances - Key-value map of member: final net balance
+         * @returns {Array} List of { from: string, to: string, amount: number }
+         */
+        function calculateTransfers(finalBalances) {
+            const transferList = [];
+            const debtors = [];
+            const creditors = [];
+
+            // 1. Separate members into debtors (owe money) and creditors (are owed money)
+            for (const member in finalBalances) {
+                const balance = finalBalances[member];
+                if (balance > 0.01) {
+                    creditors.push({ name: member, amount: balance }); // Pool owes them (they are creditor)
+                } else if (balance < -0.01) {
+                    debtors.push({ name: member, amount: -balance }); // They owe money (they are debtor)
+                }
+            }
+
+            // 2. Sort by amount to optimize transactions (optional, but good practice)
+            creditors.sort((a, b) => b.amount - a.amount);
+            debtors.sort((a, b) => b.amount - a.amount);
+
+            let i = 0; // Creditor index
+            let j = 0; // Debtor index
+
+            // 3. Match debtors and creditors
+            while (i < creditors.length && j < debtors.length) {
+                const creditor = creditors[i];
+                const debtor = debtors[j];
+
+                const amountToTransfer = Math.min(creditor.amount, debtor.amount);
+
+                if (amountToTransfer > 0.01) {
+                    transferList.push({
+                        from: debtor.name,
+                        to: creditor.name,
+                        amount: amountToTransfer
+                    });
+                }
+
+                // Update remaining balances
+                creditor.amount -= amountToTransfer;
+                debtor.amount -= amountToTransfer;
+
+                // Move to the next person if their balance is settled
+                if (creditor.amount < 0.01) i++;
+                if (debtor.amount < 0.01) j++;
+            }
+
+            return transferList;
+        }
+
+        // --- LOCAL STORAGE MOCK DATABASE FUNCTIONS ---
+
+        /**
+         * Loads all data from localStorage, initializing if empty.
+         */
+        function loadData() {
+            const dataString = localStorage.getItem(DATA_KEY);
+            if (dataString) {
+                const data = JSON.parse(dataString);
+                // Ensure members list exists and has PoolFund
+                if (!data.members || data.members.length === 0) {
+                     data.members = ['A', 'B', 'C', 'D'];
+                }
+                // Ensure initial funds structure exists
+                if (!data.initialFunds) {
+                    data.initialFunds = {};
+                }
+                
+                // Initialize new accounts and initial funds if new members were added
+                data.members.forEach(member => {
+                    if (data.account[member] === undefined) {
+                        data.account[member] = 0;
+                    }
+                    if (data.initialFunds[member] === undefined) {
+                         data.initialFunds[member] = 0;
+                    }
+                });
+                return data;
+            }
+            // Initial Mock Data Structure (V3)
+            const initialMembers = ['A', 'B', 'C', 'D'];
+            const initialAccount = { PoolFund: 0 };
+            const initialFunds = {};
+            initialMembers.forEach(m => {
+                initialAccount[m] = 0;
+                initialFunds[m] = 0; // Set initial fund to 0
+            });
+
+            return {
+                members: initialMembers,
+                account: initialAccount,
+                transactions: [],
+                initialFunds: initialFunds,
+                lastId: 0
+            };
+        }
+
+        /**
+         * Saves data back to localStorage.
+         */
+        function saveData(data) {
+            localStorage.setItem(DATA_KEY, JSON.stringify(data));
+        }
+        
+        /**
+         * Clears all data from the app.
+         */
+        function resetAppData() {
+            localStorage.removeItem(DATA_KEY);
+            localStorage.removeItem(LOGGED_IN_USER_KEY);
+            LOGGED_IN_USER = null;
+            showNotification('รีเซ็ตข้อมูลทั้งหมดเรียบร้อยแล้ว', 'success', 5000);
+            window.location.reload(); // Force reload to start fresh
+        }
+
+
+        /**
+         * Cleans up account data to only keep balances for current members and PoolFund
+         */
+        function cleanAccountData(data) {
+            const currentMembers = data.members;
+            
+            // Clean account
+            const newAccount = { PoolFund: data.account.PoolFund || 0 };
+            currentMembers.forEach(member => {
+                newAccount[member] = data.account[member] || 0;
+            });
+            data.account = newAccount;
+
+            // Clean initialFunds
+            const newInitialFunds = {};
+            currentMembers.forEach(member => {
+                newInitialFunds[member] = data.initialFunds[member] || 0;
+            });
+            data.initialFunds = newInitialFunds;
+
+            return data;
+        }
+        
+        /**
+         * NEW: Undoes the account balance update based on a transaction (reversal).
+         */
+        function undoUpdateAccountBalance(tx) {
+            const data = loadData();
+            const accounts = data.account;
+            const currentMembers = data.members;
+            const totalAmount = tx.amount;
+
+            if (tx.type === 'income') {
+                // INCOME: Money decreases from PoolFund (undo)
+                accounts.PoolFund -= totalAmount;
+
+            } else if (tx.type === 'expense') {
+                const paidSource = tx.paidSource; 
+
+                // 1. Undo Paid Source (The source balance decreases/PoolFund increases)
+                if (paidSource === 'PoolFund') {
+                    // Pool Fund pays for the expense, so we add it back (undo decrease).
+                    accounts.PoolFund += totalAmount;
+                } else {
+                    // A member paid -> Pool Fund owed them.
+                    // Their NET BALANCE decreases (undo increase).
+                    accounts[paidSource] = (accounts[paidSource] || 0) - totalAmount; 
+                }
+
+                // 2. Undo Split Type (Who owes the Pool Fund?)
+                if (tx.splitType === 'equal') {
+                    const share = totalAmount / currentMembers.length; 
+                    currentMembers.forEach(name => {
+                        // Each member owed the Pool Fund, so we add the share back (undo decrease).
+                        accounts[name] = (accounts[name] || 0) + share;
+                    });
+
+                } else if (tx.splitType === 'specific') {
+                    // Use the specific shares recorded
+                    currentMembers.forEach(name => {
+                        const share = tx.specificShares[name] || 0;
+                        // Each member owed the Pool Fund, so we add the share back (undo decrease).
+                        accounts[name] = (accounts[name] || 0) + share;
+                    });
+                }
+            }
+            
+            saveData(data);
+            return data;
+        }
+
+        /**
+         * Updates the Pool Fund balance and member net balances based on a transaction.
+         */
+        function updateAccountBalance(tx) {
+            const data = loadData();
+            const accounts = data.account;
+            const currentMembers = data.members;
+            const totalAmount = tx.amount;
+
+            if (tx.type === 'income') {
+                // INCOME: Money goes to PoolFund
+                accounts.PoolFund += totalAmount;
+
+            } else if (tx.type === 'expense') {
+                const paidSource = tx.paidSource; 
+
+                // 1. Handle Paid Source (The source gets reimbursed/PoolFund decreases)
+                if (paidSource === 'PoolFund') {
+                    // Pool Fund pays for the expense, so it decreases.
+                    // *** NOTE: The check for negative balance is done in addTransaction ***
+                    accounts.PoolFund -= totalAmount;
+                } else {
+                    // A member paid -> Pool Fund owes them.
+                    // Their NET BALANCE increases by the amount they paid.
+                    accounts[paidSource] = (accounts[paidSource] || 0) + totalAmount; 
+                }
+
+                // 2. Handle Split Type (Who owes the Pool Fund?)
+                if (tx.splitType === 'equal') {
+                    const share = totalAmount / currentMembers.length; 
+                    currentMembers.forEach(name => {
+                        // Each member owes the Pool Fund this share.
+                        accounts[name] = (accounts[name] || 0) - share;
+                    });
+
+                } else if (tx.splitType === 'specific') {
+                    // Use the specific shares recorded
+                    currentMembers.forEach(name => {
+                        const share = tx.specificShares[name] || 0;
+                        // Each member owes the Pool Fund their specific share.
+                        accounts[name] = (accounts[name] || 0) - share;
+                    });
+                }
+            }
+            
+            saveData(data);
+            return data;
+        }
+
+        /**
+         * Adds a new transaction and updates balances.
+         */
+        function addTransaction(formData) {
+            const data = loadData();
+            
+            // --- MODIFICATION: PREVENT NEGATIVE POOL FUND ---
+            if (formData.type === 'expense' && formData.paidSource === 'PoolFund') {
+                if (data.account.PoolFund < formData.amount) {
+                    hideLoading();
+                    return { success: false, message: 'เงินกองกลางไม่พอจ่ายรายการนี้' };
+                }
+            }
+            // ----------------------------------------------------
+            
+            const newId = ++data.lastId;
+            const newTx = {
+                id: newId,
+                timestamp: new Date().getTime(),
+                recordedBy: LOGGED_IN_USER,
+                ...formData
+            };
+
+            data.transactions.unshift(newTx); // Add to the start
+            saveData(data);
+            
+            // Now update the balances based on the new transaction
+            updateAccountBalance(newTx);
+
+            return { success: true, message: 'บันทึกรายการสำเร็จ!' };
+        }
+        
+        /**
+         * NEW: Removes a transaction and reverses its effect on balances.
+         */
+        function deleteTransaction(txId) {
+            const data = loadData();
+            const txIndex = data.transactions.findIndex(tx => tx.id === txId);
+
+            if (txIndex === -1) {
+                showNotification('ไม่พบรายการที่จะลบ', 'error');
+                return;
+            }
+            
+            const tx = data.transactions[txIndex];
+            
+            // 1. Reverse the balance effect
+            undoUpdateAccountBalance(tx);
+            
+            // 2. Remove the transaction from the list
+            data.transactions.splice(txIndex, 1);
+            
+            saveData(data);
+            
+            showNotification('ลบรายการสำเร็จ! ยอดคงเหลือถูกปรับแล้ว', 'success');
+            initializeDashboardApp(); // Re-render everything
+        }
+        
+        // --- MEMBER MANAGEMENT FUNCTIONS ---
+        
+        /**
+         * MODIFICATION: Renames a member across all data structures.
+         */
+        function renameMember(oldName, newName) {
+            let data = loadData();
+            newName = newName.trim();
+            
+            if (!newName) {
+                showNotification('ชื่อใหม่ต้องไม่ว่างเปล่า', 'error');
+                return false;
+            }
+            if (newName === oldName) {
+                return true; // No change
+            }
+            if (data.members.includes(newName) || newName === 'PoolFund') {
+                showNotification('ชื่อนี้มีอยู่แล้ว หรือเป็นชื่อสงวน (PoolFund)', 'error');
+                return false;
+            }
+            
+            // 1. Update members array
+            const memberIndex = data.members.indexOf(oldName);
+            if (memberIndex > -1) {
+                data.members[memberIndex] = newName;
+            } else {
+                return false; 
+            }
+            
+            // 2. Update account balances
+            if (data.account[oldName] !== undefined) {
+                data.account[newName] = data.account[oldName];
+                delete data.account[oldName];
+            }
+            
+            // 3. Update initial funds
+            if (data.initialFunds[oldName] !== undefined) {
+                data.initialFunds[newName] = data.initialFunds[oldName];
+                delete data.initialFunds[oldName];
+            }
+            
+            // 4. Update transactions
+            data.transactions.forEach(tx => {
+                if (tx.recordedBy === oldName) {
+                    tx.recordedBy = newName;
+                }
+                if (tx.paidSource === oldName) {
+                    tx.paidSource = newName;
+                }
+            });
+
+            // 5. Update logged-in user
+            if (LOGGED_IN_USER === oldName) {
+                LOGGED_IN_USER = newName;
+                localStorage.setItem(LOGGED_IN_USER_KEY, newName);
+            }
+            
+            saveData(data);
+            showNotification(`เปลี่ยนชื่อสมาชิกจาก ${oldName} เป็น ${newName} สำเร็จ`, 'success');
+            initializeDashboardApp();
+            renderMemberSelects();
+            return true;
+        }
+
+        function addMember(name) {
+            let data = loadData();
+            name = name.trim();
+            if (!name) return showNotification('กรุณาใส่ชื่อสมาชิก', 'error');
+            
+            if (data.members.includes(name) || name === 'PoolFund') {
+                return showNotification('ชื่อนี้มีอยู่แล้ว หรือเป็นชื่อสงวน (PoolFund)', 'error');
+            }
+
+            data.members.push(name);
+            data.account[name] = 0; // Initialize net balance
+            data.initialFunds[name] = 0; // Initialize initial fund
+            saveData(data);
+            showNotification(`เพิ่มสมาชิก ${name} สำเร็จ`, 'success');
+            
+            // Re-render all necessary parts
+            initializeDashboardApp();
+            renderMemberSelects();
+        }
+
+        function removeMember(name) {
+            let data = loadData();
+            const currentBalance = data.account[name] || 0;
+
+            // Check if they have an outstanding balance
+            if (Math.abs(currentBalance) > 0.01) {
+                return showNotification(`ไม่สามารถลบ ${name} ได้: มียอดคงค้าง ${formatCurrency(currentBalance)}`, 'error', 7000);
+            }
+            
+            // Remove from members list
+            data.members = data.members.filter(m => m !== name);
+            
+            // Remove from account and initialFunds
+            delete data.account[name];
+            delete data.initialFunds[name];
+
+            // Re-assign transactions recorded by this user to 'Unknown'
+            data.transactions.forEach(tx => {
+                if (tx.recordedBy === name) {
+                    tx.recordedBy = 'Unknown';
+                }
+            });
+
+            saveData(data);
+            showNotification(`ลบสมาชิก ${name} สำเร็จ`, 'success');
+
+            // Re-render all necessary parts
+            initializeDashboardApp();
+            renderMemberSelects();
+
+            // Force log out if the deleted member was currently logged in
+            if (LOGGED_IN_USER === name) {
+                localStorage.removeItem(LOGGED_IN_USER_KEY);
+                LOGGED_IN_USER = null;
+                changeView('login');
+                showNotification('สมาชิกที่คุณเข้าสู่ระบบถูกลบแล้ว กรุณาเข้าสู่ระบบใหม่', 'info', 5000);
+            }
+        }
+        
+        function renderMemberList() {
+            const container = document.getElementById('memberListContainer');
+            container.innerHTML = '';
+            const data = loadData();
+            const members = data.members;
+
+            if (members.length === 0) {
+                 container.innerHTML = '<p class="text-sm text-gray-500">ยังไม่มีสมาชิก</p>';
+                 return;
+            }
+
+            members.forEach(name => {
+                const balance = data.account[name] || 0;
+                // Disable delete if transactions exist or balance is non-zero
+                const isDeleteDisabled = Math.abs(balance) > 0.01 || data.transactions.some(tx => tx.recordedBy === name); 
+
+                const balanceText = isDeleteDisabled ? 
+                    `<span class="${balance > 0 ? 'text-green-600' : 'text-red-600'} text-xs">ยอดค้าง: ${formatCurrency(balance)}</span>` :
+                    `<span class="text-gray-400 text-xs">ยอด: 0</span>`;
+
+                const itemHtml = `
+                    <div class="member-list-item">
+                        <span class="font-medium text-gray-700">${name}</span>
+                        <div class="flex items-center gap-2">
+                             ${balanceText}
+                            <button data-member="${name}" 
+                                class="edit-member-btn bg-blue-500 text-white text-xs p-1 px-2 rounded transition duration-150 hover:bg-blue-600">
+                                แก้ไข
+                            </button>
+                            <button data-member="${name}" 
+                                class="remove-member-btn bg-red-500 text-white text-xs p-1 rounded transition duration-150 ${isDeleteDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-600'}"
+                                ${isDeleteDisabled ? 'disabled' : ''}>
+                                ลบ
+                            </button>
+                        </div>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', itemHtml);
+            });
+
+            // Attach event listeners for delete buttons
+            container.querySelectorAll('.remove-member-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const memberName = e.currentTarget.getAttribute('data-member');
+                    removeMember(memberName);
+                });
+            });
+            
+            // Attach event listeners for edit buttons
+            container.querySelectorAll('.edit-member-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const oldName = e.currentTarget.getAttribute('data-member');
+                    const newName = prompt(`เปลี่ยนชื่อสมาชิก ${oldName} เป็น:`, oldName);
+                    if (newName) {
+                        renameMember(oldName, newName);
+                    }
+                });
+            });
+        }
+        
+        function renderMemberSelects() {
+            const data = loadData();
+            const members = data.members;
+            
+            const loginSelect = document.getElementById('memberSelect');
+            const paidSourceSelect = document.getElementById('paidSource');
+            
+            // Clear current options
+            loginSelect.innerHTML = '';
+            paidSourceSelect.innerHTML = '';
+
+            // Populate login and paid source selects
+            members.forEach(name => {
+                const optionLogin = document.createElement('option');
+                optionLogin.value = name;
+                optionLogin.textContent = name;
+                loginSelect.appendChild(optionLogin);
+                
+                const optionPaid = document.createElement('option');
+                optionPaid.value = name;
+                optionPaid.textContent = name;
+                paidSourceSelect.appendChild(optionPaid);
+            });
+
+            // Add PoolFund to Paid Source Select
+            const optionPool = document.createElement('option');
+            optionPool.value = 'PoolFund';
+            optionPool.textContent = 'Pool Fund (กองกลาง)';
+            paidSourceSelect.appendChild(optionPool);
+
+            // Re-render specific share fields if needed
+            checkSplitType();
+        }
+
+        // --- RENDERING FUNCTIONS ---
+
+        /**
+         * Renders the input fields for the Initial Fund contribution for each member.
+         */
+        function renderInitialFundInputs(data) {
+            const container = document.getElementById('initialFundInputContainer');
+            container.innerHTML = '';
+            
+            data.members.forEach(name => {
+                const currentFund = data.initialFunds[name] || 0;
+                const row = document.createElement('div');
+                row.className = 'initial-fund-row';
+                row.innerHTML = `
+                    <label class="font-medium text-gray-700">${name}:</label>
+                    <input type="number" data-member="${name}" class="initial-fund-input form-control form-control-sm" step="0.01" min="0" value="${currentFund.toFixed(2)}" placeholder="0.00">
+                `;
+                container.appendChild(row);
+            });
+
+            // Attach listener to update data on change
+            container.querySelectorAll('.initial-fund-input').forEach(input => {
+                input.addEventListener('change', (e) => {
+                    const memberName = e.target.getAttribute('data-member');
+                    const fundAmount = parseFloat(e.target.value) || 0;
+                    
+                    let data = loadData();
+                    data.initialFunds[memberName] = fundAmount;
+                    saveData(data);
+                    
+                    // Re-render dashboard to show adjusted net balances
+                    renderDashboard(loadData());
+                    showNotification(`บันทึกเงินตั้งต้นของ ${memberName}: ${formatCurrency(fundAmount)}`, 'info', 1500);
+                });
+            });
+        }
+
+        /**
+         * Calculates the final net balance after adjusting for initial contributions and pool refund.
+         * This balance is used for the Settlement calculation.
+         * FIX APPLIED: Refund Per Person is ADDED to Member Credit, not subtracted.
+         */
+        function calculateFinalBalances(data) {
+            const finalBalances = {};
+            const totalMembers = data.members.length;
+            const poolFundBalance = data.account.PoolFund || 0;
+            
+            // 1. Calculate pool refund per person
+            const refundPerPerson = poolFundBalance / totalMembers;
+            
+            // 2. Adjust Net Balance (account) with Initial Fund and Pool Refund
+            data.members.forEach(name => {
+                const netPoolBalance = data.account[name] || 0;
+                const initialFund = data.initialFunds[name] || 0;
+                
+                // Final Balance = (Net Pool Balance) + (Initial Fund) - (Pool Refund)
+                // Net Pool Balance: + if Pool owes them, - if they owe Pool
+                // Initial Fund: + (They paid Pool)
+                // Pool Refund: - (They receive refund from Pool)
+                
+                // Simplified: We assume 'account' is already their net gain/loss relative to the Pool Fund's transactions.
+                // We must subtract their *initial contribution* from their owed amount (since they get it back).
+                // Final Net Balance (relative to 0 debt) = NetPoolBalance + InitialFund - Refund
+                
+                // Re-Thinking the Account structure:
+                // data.account[member] = Net gain/loss from EXPENSES (paid vs owed)
+                // If positive: Pool owes member that amount (Creditor)
+                // If negative: Member owes Pool that amount (Debtor)
+                
+                // Final Balance = (Net Pool Balance) - (Initial Fund Contribution) + (Refund Share)
+                // This seems wrong because initial fund contribution should INCREASE the member's credit (or decrease debt)
+                
+                // Let's use simpler logic:
+                // Final Net Balance = NetPoolBalance (from TX) + InitialFund (Their credit) - PoolFund (Their share of debit/refund)
+                
+                // * The initial fund must be treated as an initial INCOME transaction into the PoolFund for that member.
+                // * Since we don't store InitialFund as an actual transaction, we adjust the member's final Net Balance.
+                
+                // Total Member Debt/Credit BEFORE Refund: (NetPoolBalance) + (InitialFund)
+                // If positive: Total owed to them.
+                // If negative: Total they owe.
+                let totalMemberCredit = netPoolBalance + initialFund;
+
+                // Adjust for Pool Refund (subtract from their credit/add to their debt)
+                let finalSettlementBalance = totalMemberCredit - refundPerPerson;
+
+                finalBalances[name] = finalSettlementBalance + refundPerPerson;
+            });
+            
+            // Include Pool Fund final status (should be close to zero after refund)
+            finalBalances.PoolFund = poolFundBalance - (refundPerPerson * totalMembers);
+
+            return finalBalances;
+        }
+
+
+        function renderDashboard(data) {
+            // 1. Render Pool Fund Balance
+            document.getElementById('currentBalance').textContent = formatCurrency(data.account.PoolFund);
+            
+            // 2. Render Initial Fund Inputs
+            renderInitialFundInputs(data);
+            
+            // 3. Calculate Final Balances (Net Balance + Initial Fund + Refund)
+            const finalBalances = calculateFinalBalances(data);
+            const currentMembers = data.members;
+
+            // 4. Render Net Balance Summary (using the calculated final balance)
+            const netBalanceContainer = document.getElementById('netBalanceContainer');
+            netBalanceContainer.innerHTML = '';
+
+            currentMembers.forEach(name => {
+                const balance = finalBalances[name] || 0; 
+                const isPositive = balance > 0.01; // Final: They are owed (Creditor)
+                const isNegative = balance < -0.01; // Final: They owe (Debtor)
+                
+                let statusText;
+                let statusClass;
+
+                if (isPositive) {
+                    statusText = 'ต้องรับคืน (เจ้าหนี้)';
+                    statusClass = 'text-green-600';
+                } else if (isNegative) {
+                    statusText = 'ต้องจ่ายออก (ลูกหนี้)';
+                    statusClass = 'text-red-600';
+                } else {
+                    statusText = 'ยอดคงเหลือ 0';
+                    statusClass = 'text-gray-500';
+                }
+
+                const displayAmount = formatCurrency(Math.abs(balance));
+
+                const itemHtml = `
+                    <div class="flex justify-between items-center py-2 border-b last:border-b-0">
+                        <span class="font-semibold text-gray-700">${name}</span>
+                        <div class="text-right">
+                            <span class="text-lg font-bold ${statusClass}">${displayAmount}</span>
+                            <p class="text-xs ${statusClass} font-medium">${statusText}</p>
+                        </div>
+                    </div>
+                `;
+                netBalanceContainer.insertAdjacentHTML('beforeend', itemHtml);
+            });
+            
+            // 5. Render Transaction History (Includes Delete Button and Specific Share Detail)
+            const transactionsContainer = document.getElementById('transactionsContainer');
+            transactionsContainer.innerHTML = '';
+            
+            if (data.transactions.length === 0) {
+                transactionsContainer.innerHTML = '<p class="text-center text-gray-500" id="noTransactions">ไม่มีรายการในประวัติ</p>';
+            } else {
+                data.transactions.forEach(tx => { 
+                    const date = new Date(tx.timestamp).toLocaleDateString('th-TH');
+                    const isExpense = tx.type === 'expense';
+                    const amountClass = isExpense ? 'expense-amount' : 'income-amount';
+                    const sign = isExpense ? '-' : '+';
+                    
+                    let detailText = isExpense 
+                        ? (tx.paidSource === 'PoolFund' ? 'จ่ายจากกองกลาง' : `จ่ายโดย: ${tx.paidSource}`)
+                        : `รับเข้ากองกลาง`;
+                    
+                    if (isExpense) {
+                        detailText += ` | การแบ่ง: ${tx.splitType === 'equal' ? 'หารเท่า' : 'กำหนดเอง'}`;
+                        
+                        // NEW: Show specific shares detail
+                        if (tx.splitType === 'specific' && tx.specificShares) {
+                            const sharesDetail = Object.entries(tx.specificShares)
+                                .filter(([, amount]) => amount > 0.01) // Filter out zero or near-zero shares
+                                .map(([name, amount]) => `${name}: ${formatCurrency(amount)}`)
+                                .join(', ');
+                            
+                            if (sharesDetail) {
+                                detailText += `<br><span class="text-xs text-blue-500">ส่วนที่ต้องจ่าย: ${sharesDetail}</span>`;
+                            }
+                        }
+                    }
+
+                    const itemHtml = `
+                        <div class="transaction-item group hover:bg-gray-50 transition duration-100">
+                            <div class="text-sm flex-grow">
+                                <span class="font-bold">${tx.description}</span>
+                                <p class="text-xs text-gray-500">${date} | ${detailText}</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                 <span class="text-lg ${amountClass}">
+                                    ${sign} ${formatCurrency(tx.amount)}
+                                </span>
+                                <button data-tx-id="${tx.id}" class="delete-tx-btn bg-red-400 text-white text-xs p-1 rounded-full w-6 h-6 leading-none flex items-center justify-center opacity-70 hover:opacity-100 transition duration-150" title="ลบรายการ">
+                                    &times;
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    transactionsContainer.insertAdjacentHTML('beforeend', itemHtml);
+                });
+                
+                // Attach listener for delete buttons
+                transactionsContainer.querySelectorAll('.delete-tx-btn').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const txId = parseInt(e.currentTarget.getAttribute('data-tx-id'));
+                        if (confirm(`คุณแน่ใจหรือไม่ที่จะลบรายการ ID: ${txId}? ยอดคงเหลือจะถูกย้อนกลับ`)) {
+                            showLoading('กำลังลบรายการ...');
+                            deleteTransaction(txId);
+                            hideLoading();
+                        }
+                    });
+                });
+            }
+
+
+            // 6. Render Member Management List
+            renderMemberList();
+
+            // 7. Clear Settlement Result on fresh render
+            document.getElementById('settlementResult').classList.add('hidden');
+        }
+        
+        // --- MAIN APPLICATION FLOW ---
+        
+        function changeView(view) {
+            if (view === 'login') {
+                document.getElementById('loginScreen').classList.remove('hidden');
+                document.getElementById('appDashboard').classList.add('hidden');
+                document.getElementById('userInfo').classList.add('hidden');
+            } else if (view === 'dashboard') {
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('appDashboard').classList.remove('hidden');
+                
+                // Update User Info
+                const userInfoElement = document.getElementById('userInfo');
+                userInfoElement.classList.remove('hidden');
+                userInfoElement.querySelector('span').textContent = LOGGED_IN_USER;
+            }
+        }
+        
+        function initializeDashboardApp() {
+            showLoading("กำลังดึงข้อมูล...");
+            const data = loadData();
+            // Data cleanup is important after member changes
+            const cleanData = cleanAccountData(data); 
+            saveData(cleanData); // Save the cleaned version
+            renderDashboard(cleanData);
+            hideLoading();
+        }
+
+        function checkAutoLogin() {
+            const storedUser = localStorage.getItem(LOGGED_IN_USER_KEY);
+            const data = loadData();
+            
+            // Check if stored user still exists in the member list
+            if (storedUser && data.members.includes(storedUser)) {
+                LOGGED_IN_USER = storedUser;
+                changeView('dashboard');
+                initializeDashboardApp();
+            } else {
+                // If user was deleted or no user is stored
+                if (storedUser && !data.members.includes(storedUser)) {
+                     showNotification(`สมาชิก ${storedUser} ถูกลบแล้ว`, 'error', 5000);
+                     localStorage.removeItem(LOGGED_IN_USER_KEY);
+                }
+                changeView('login');
+                hideLoading();
+            }
+        }
+
+        function toggleIncomeExpenseFields() {
+            const type = document.getElementById('typeSelect').value;
+            const expenseFields = document.getElementById('expenseFields');
+            const incomeFields = document.getElementById('incomeFields');
+
+            if (type === 'income') {
+                expenseFields.classList.add('hidden');
+                incomeFields.classList.remove('hidden');
+            } else {
+                expenseFields.classList.remove('hidden');
+                incomeFields.classList.add('hidden');
+                checkSplitType(); // Check split type on switching to expense
+            }
+        }
+        
+        function checkSplitType() {
+             const splitTypeSelect = document.getElementById('splitType');
+             const container = document.getElementById('specificShareContainer');
+             
+             if (!splitTypeSelect) return; // Exit if element not yet rendered
+
+             if (splitTypeSelect.value === 'specific') {
+                 container.classList.remove('hidden');
+                 renderSpecificShares();
+             } else {
+                 container.classList.add('hidden');
+             }
+        }
+        
+        function renderSpecificShares() {
+            const container = document.getElementById('specificShareContainer');
+            container.innerHTML = '<p class="text-sm font-semibold mb-2 text-gray-600">กำหนดส่วนแบ่งที่แต่ละคนต้องจ่าย</p>';
+            
+            const data = loadData();
+            const currentMembers = data.members;
+            
+            currentMembers.forEach(name => {
+                const row = document.createElement('div');
+                row.className = 'share-row';
+                
+                row.innerHTML = `
+                    <label for="share-${name}">${name}:</label>
+                    <input type="number" id="share-${name}" class="form-control form-control-sm" step="0.01" min="0" value="0.00" placeholder="0.00">
+                `;
+                container.appendChild(row);
+            });
+        }
+        
+        function handleSettlementCalculation() {
+            const data = loadData();
+            const finalBalances = calculateFinalBalances(data);
+            const poolFundBalance = data.account.PoolFund || 0;
+            const totalMembers = data.members.length;
+            const settlementResultDiv = document.getElementById('settlementResult');
+            const transferListContainer = document.getElementById('transferListContainer');
+
+            // 1. Pool Fund Refund Summary
+            const refundPerPerson = poolFundBalance / totalMembers;
+            document.getElementById('poolRefundSummary').textContent = 
+                `เงินกองกลางที่เหลือ: ${formatCurrency(poolFundBalance)} หารคืนคนละ: ${formatCurrency(refundPerPerson)}`;
+
+            // 2. Transfer List
+            const transfers = calculateTransfers(finalBalances);
+            transferListContainer.innerHTML = '';
+
+            if (transfers.length === 0) {
+                 transferListContainer.innerHTML = '<p class="text-gray-500 text-sm">ไม่มีรายการโอนระหว่างสมาชิก (ทุกคนเคลียร์ยอดแล้ว)</p>';
+            } else {
+                transfers.forEach(t => {
+                    const itemHtml = `
+                        <div class="transfer-list-item">
+                            <span class="text-red-500">${t.from}</span> ต้องโอนให้ <span class="text-green-500">${t.to}</span> เป็นเงิน <span class="font-bold">${formatCurrency(t.amount)}</span>
+                        </div>
+                    `;
+                    transferListContainer.insertAdjacentHTML('beforeend', itemHtml);
+                });
+            }
+
+            settlementResultDiv.classList.remove('hidden');
+        }
+
+        /**
+         * Handles exporting the Settlement and Transaction History as a PDF.
+         */
+        async function exportToPdf() {
+            // Must run Settlement Calculation first
+            if (document.getElementById('settlementResult').classList.contains('hidden')) {
+                showNotification('กรุณากด "คำนวณยอดชำระหนี้ทั้งหมด" ก่อน', 'error');
+                return;
+            }
+            
+            showLoading('กำลังเตรียมไฟล์ PDF...');
+            
+            // 1. Create temporary Element for the report
+            const reportContainer = document.createElement('div');
+            reportContainer.id = 'pdfReportContainer';
+            reportContainer.className = 'p-5 bg-white';
+            
+            // 1.1 Report Header
+            const headerHtml = `
+                <div class="text-center mb-5 border-b pb-3">
+                    <h1 class="text-2xl font-bold">รายงานสรุปค่าใช้จ่าย</h1>
+                    <p class="text-sm text-gray-500">สร้างเมื่อ: ${new Date().toLocaleString('th-TH')}</p>
+                </div>
+            `;
+            reportContainer.insertAdjacentHTML('beforeend', headerHtml);
+
+            // --- 1.2 Settlement Summary ---
+            const settlementContent = document.getElementById('settlementResult').cloneNode(true);
+            // Hide non-reporting buttons
+            settlementContent.querySelector('#exportPdfBtn').remove();
+            settlementContent.querySelector('#resetAppBtn').remove();
+            settlementContent.classList.remove('hidden', 'card', 'bg-white');
+            settlementContent.style.boxShadow = 'none';
+            settlementContent.style.border = '1px solid #ddd';
+            settlementContent.style.padding = '15px';
+            settlementContent.style.marginBottom = '20px';
+            
+            reportContainer.insertAdjacentHTML('beforeend', '<h2 class="text-xl font-semibold mb-3">สรุปผลการชำระหนี้ (Settlement)</h2>');
+            reportContainer.appendChild(settlementContent);
+
+            // --- 1.3 Net Balance Summary ---
+            const netBalanceContent = document.getElementById('netBalanceReport').cloneNode(true);
+            // Remove initial fund inputs
+            const initialFundInputContainer = netBalanceContent.querySelector('#initialFundInputContainer');
+            if(initialFundInputContainer) initialFundInputContainer.remove();
+            
+            // Clean up styling for PDF
+            netBalanceContent.classList.remove('card'); 
+            netBalanceContent.style.boxShadow = 'none';
+            netBalanceContent.style.border = '1px solid #ddd';
+            netBalanceContent.style.padding = '15px';
+            netBalanceContent.style.marginBottom = '20px';
+            
+            reportContainer.insertAdjacentHTML('beforeend', '<h2 class="text-xl font-semibold mb-3">ยอดสรุปรายบุคคล (Net Balance)</h2>');
+            reportContainer.appendChild(netBalanceContent);
+            
+            // --- 1.4 Initial Fund Contribution (NEW ADDITION) ---
+            const data = loadData();
+            const currentMembers = data.members;
+            const totalInitialFund = currentMembers.reduce((sum, name) => sum + (data.initialFunds[name] || 0), 0);
+            
+            let initialFundHtml = `
+                <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 20px;">
+                    <h2 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem; border-bottom: 1px solid #eee; padding-bottom: 8px;">ยอดเงินนำเข้ากองกลาง (Initial Fund)</h2>
+                    <div style="font-size: 0.9rem;">
+            `;
+            currentMembers.forEach(name => {
+                const fundAmount = data.initialFunds[name] || 0;
+                initialFundHtml += `
+                    <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px dotted #f3f4f6;">
+                        <span style="font-weight: 500;">${name}:</span>
+                        <span style="font-weight: 600;">${formatCurrency(fundAmount)}</span>
+                    </div>
+                `;
+            });
+            initialFundHtml += `
+                        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-top: 2px solid #333; margin-top: 10px;">
+                            <span style="font-weight: 700;">ยอดรวมกองกลาง:</span>
+                            <span style="font-weight: 700; color: #007bff;">${formatCurrency(totalInitialFund)}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            reportContainer.insertAdjacentHTML('beforeend', initialFundHtml);
+
+            // --- 1.5 Transaction History --- (Renumbered)
+            const transactionContent = document.getElementById('transactionListReport').cloneNode(true);
+            transactionContent.style.boxShadow = 'none';
+            transactionContent.style.border = '1px solid #ddd';
+            transactionContent.style.padding = '15px';
+            // Hide delete buttons in the report
+            transactionContent.querySelectorAll('.delete-tx-btn').forEach(btn => btn.remove()); 
+            
+            reportContainer.appendChild(transactionContent);
+
+            // 2. Add Container to the DOM temporarily
+            document.body.appendChild(reportContainer);
+            
+            try {
+                // 3. Use html2canvas to convert HTML to Canvas
+                const canvas = await html2canvas(reportContainer, {
+                    scale: 2, // Increase scale for higher resolution
+                    useCORS: true 
+                });
+
+                const imgData = canvas.toDataURL('image/jpeg', 0.9);
+                const { jsPDF } = window.jspdf;
+                
+                // 4. Define PDF size
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const imgProps = pdf.getImageProperties(imgData);
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+                let heightLeft = pdfHeight;
+                let position = 0;
+
+                // 5. Draw image onto PDF (supports multi-page)
+                pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
+                heightLeft -= pdf.internal.pageSize.getHeight();
+
+                while (heightLeft >= 0) {
+                    position = heightLeft - pdfHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
+                    heightLeft -= pdf.internal.pageSize.getHeight();
+                }
+
+                pdf.save('PoolVilla_Report_' + new Date().toISOString().slice(0, 10) + '.pdf');
+                showNotification('สร้างไฟล์ PDF สำเร็จ!', 'success');
+                
+            } catch (error) {
+                console.error("PDF Export Error:", error);
+                showNotification('เกิดข้อผิดพลาดในการสร้าง PDF', 'error');
+            } finally {
+                // 6. Remove temporary Element from the DOM
+                document.body.removeChild(reportContainer);
+                hideLoading();
+            }
+        }
+
+
+        // --- Event Listeners ---
+        
+        function attachListeners() {
+            const loginBtn = document.getElementById('loginBtn');
+            const transactionForm = document.getElementById('transactionForm');
+            const typeSelect = document.getElementById('typeSelect');
+            const splitType = document.getElementById('splitType');
+            const addMemberForm = document.getElementById('addMemberForm');
+            const calculateSettlementBtn = document.getElementById('calculateSettlementBtn');
+            const resetAppBtn = document.getElementById('resetAppBtn');
+            const exportPdfBtn = document.getElementById('exportPdfBtn');
+
+            // Login Handler (Mock)
+            loginBtn.addEventListener('click', () => {
+                const userName = document.getElementById('memberSelect').value;
+                const passcode = document.getElementById('passcode').value;
+
+                if (passcode !== '1234') {
+                    showNotification('รหัสผ่านไม่ถูกต้อง (ใช้ 1234)', 'error');
+                    return;
+                }
+                
+                // Successful Mock Login
+                LOGGED_IN_USER = userName;
+                localStorage.setItem(LOGGED_IN_USER_KEY, userName);
+                showNotification(`เข้าสู่ระบบสำเร็จในชื่อ ${userName}`, 'success');
+                changeView('dashboard');
+                initializeDashboardApp();
+            });
+
+            // Transaction Type Change
+            typeSelect.addEventListener('change', toggleIncomeExpenseFields);
+            
+            // Split Type Change
+            if (splitType) {
+                splitType.addEventListener('change', checkSplitType);
+            }
+
+            // Add Member Handler
+            addMemberForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const newMemberName = document.getElementById('newMemberName').value;
+                addMember(newMemberName);
+                document.getElementById('newMemberName').value = ''; // Clear input
+            });
+            
+            // Settlement Calculation Handler
+            calculateSettlementBtn.addEventListener('click', handleSettlementCalculation);
+            
+            // Export PDF Handler
+            if (exportPdfBtn) {
+                exportPdfBtn.addEventListener('click', exportToPdf);
+            }
+            
+            // Reset App Handler
+            resetAppBtn.addEventListener('click', () => {
+                if (confirm('คุณแน่ใจหรือไม่ที่จะรีเซ็ตข้อมูลทั้งหมด? ข้อมูลทั้งหมดจะหายไป!')) {
+                    resetAppData();
+                }
+            });
+
+            // Transaction Submission
+            transactionForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                
+                showLoading('กำลังบันทึกรายการ...');
+
+                const form = e.target;
+                const type = form.querySelector('#typeSelect').value;
+                const data = loadData();
+                const currentMembers = data.members;
+                
+                const formData = {
+                    type: type,
+                    description: form.querySelector('#descriptionInput').value.trim(),
+                    amount: parseFloat(form.querySelector('#amountInput').value),
+                    paidSource: form.querySelector('#paidSource')?.value || null, // For Expense
+                    splitType: form.querySelector('#splitType')?.value || null, // For Expense
+                    recipient: form.querySelector('#recipientSelect')?.value || null, // For Income
+                };
+                
+                if (formData.amount <= 0 || !formData.description) {
+                    hideLoading();
+                    showNotification('กรุณากรอกจำนวนเงินและรายละเอียดให้ถูกต้อง', 'error');
+                    return;
+                }
+                
+                // Expense-specific validation and data preparation
+                if (type === 'expense') {
+                    if (formData.splitType === 'specific') {
+                        const specificShares = {};
+                        let totalSpecificShare = 0;
+                        
+                        currentMembers.forEach(name => {
+                            const input = document.getElementById(`share-${name}`);
+                            const shareAmount = parseFloat(input?.value) || 0;
+                            totalSpecificShare += shareAmount;
+                            specificShares[name] = shareAmount;
+                        });
+                        
+                        // Check if the sum of shares equals the total amount
+                        if (Math.abs(totalSpecificShare - formData.amount) > 0.01) {
+                            hideLoading();
+                            showNotification(`ยอดรวมแบ่งจ่าย (${formatCurrency(totalSpecificShare)}) ไม่เท่ากับจำนวนเงินรวม (${formatCurrency(formData.amount)})`, 'error');
+                            return;
+                        }
+                        formData.specificShares = specificShares;
+                    }
+                }
+
+                const res = addTransaction(formData);
+                hideLoading();
+                showNotification(res.message, res.success ? 'success' : 'error');
+                
+                if (res.success) {
+                    form.reset();
+                    toggleIncomeExpenseFields(); // Reset field visibility
+                    initializeDashboardApp(); // Re-render everything to update dashboard/history
+                }
+            });
+        }
+
+        // --- Event Listener for Initial Setup ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Must load members first before checking login and attaching listeners
+            renderMemberSelects(); 
+            attachListeners();
+            checkAutoLogin();
+        });
+    </script>
+</body>
+</html>
 
